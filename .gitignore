@@ -1,0 +1,8 @@
+node_modules
+dist
+*.zip
+.DS_Store
+cache
+.yarn
+.env
+chainlink-secretnetwork.code-workspace

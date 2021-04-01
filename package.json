@@ -4,7 +4,7 @@
   "license": "MIT",
   "private": true,
   "workspaces": [
-    "listen-eth"
+    "watch-eth"
   ],
   "scripts": {
     "lint": "yarn workspaces run lint",

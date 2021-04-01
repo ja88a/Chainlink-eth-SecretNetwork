@@ -1,0 +1,35 @@
+{
+  "name": "@ja88a/chainlink-oracles-bridge",
+  "version": "0.0.1",
+  "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "watch-eth"
+  ],
+  "scripts": {
+    "lint": "yarn workspaces run lint",
+    "lint:fix": "yarn workspaces run lint:fix",
+    "setup": "yarn wsrun -mre -t setup && yarn wsrun -mre -t setup",
+    "test": "yarn workspaces run test",
+    "test:unit": "yarn workspaces run test:unit",
+    "test:integration": "yarn workspaces run test:integration",
+    "test:example": "yarn workspace @ja88a/listen-eth test",
+    "test:example-start-server": "node ./helpers/server.js"
+  },
+  "devDependencies": {
+    "@tsconfig/node12": "^1.0.7",
+    "@types/eslint": "^7.2.7",
+    "eslint": "^7.2.0",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-config-standard": "^14.1.1",
+    "eslint-plugin-import": "^2.22.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^3.1.4",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1",
+    "prettier": "^2.0.5",
+    "ts-node": "^8.10.2",
+    "typescript": "^4.2.3",
+    "wsrun": "^5.2.4"
+  }
+}

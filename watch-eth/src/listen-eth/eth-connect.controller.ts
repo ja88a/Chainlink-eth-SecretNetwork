@@ -9,7 +9,7 @@ export class EthConnectController {
   private readonly logger = new Logger(EthConnectService.name);
 
   private provider: ethers.providers.Provider;
-  private signer: ethers.Wallet;
+  //private signer: ethers.Wallet;
 
   constructor(private readonly ethConnectService: EthConnectService) {
     this.init();
@@ -33,10 +33,10 @@ export class EthConnectController {
       .then((result: Map<string, Result>) => {
         this.logger.debug('Fetching all contracts data took ' + (Date.now() - timeFetchStart) + ' ms');
         this.logger.debug('Nb tracked records: ' + this.ethConnectService.getOracleContractData().length);
-        // ethers.utils.formatUnits(balance, 18)
+
         result.forEach((value: Result, key: string) => {
-          let price = value['answer'];
-          price = ethers.utils.formatUnits(price, Decimals.FIAT);
+          const priceRaw = value['answer'];
+          let price = ethers.utils.formatUnits(priceRaw, Decimals.FIAT);
           price = ethers.utils.commify(price);
           this.logger.log(
             'Oracle price for ' +
@@ -83,7 +83,7 @@ export class EthConnectController {
     this.ethConnectService
       .loadLogEventAnswerUpdated(contract, 10, 200, 4)
       .then((events) => {
-        //this.logger.log('got something: ' + events);
+        this.logger.log('Found ' + events.length + ' logged event(s) "AnswerUpdated" for ' + pair);
       })
       .catch((error) => this.logger.error(error));
     return '200';

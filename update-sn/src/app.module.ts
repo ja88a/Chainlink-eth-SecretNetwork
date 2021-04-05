@@ -3,10 +3,10 @@ import { ConfigModule } from '@nestjs/config';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { EthConnectModule } from './listen-eth/eth-connect.module';
+import { ScrtConnectModule } from './scrt-connect/scrt-connect.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(), EthConnectModule],
+  imports: [ConfigModule.forRoot(), ScrtConnectModule],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -9,9 +9,6 @@ export class AppService {
 
   getHello(): string {
     this.logger.debug('greetings done');
-    return (
-      'Hello World! <br/>Network: ' +
-      this.configService.get<string>('NETWORK_PROVIDER_ETH')
-    );
+    return 'Hello! <br/>Secret Network: ' + this.configService.get<string>('SECRET_CHAIN_ID');
   }
 }

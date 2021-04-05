@@ -2,6 +2,19 @@
 
 WORK IN PROGRESS
 
+Compile: 
+```
+cargo wasm
+```
+
+Optimize compiled wasm:
+```
+docker run --rm -v "$(pwd)":/contract \
+  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  enigmampc/secret-contract-optimizer
+```
+
 This is a secret Oracle Price contract in Rust to run in
 [Secret Network](https://github.com/enigmampc/SecretNetwork).
 To understand the framework better, please read the overview in the

@@ -1,8 +1,8 @@
 {
-  "name": "nest-typescript-starter",
+  "name": "@ja88a/nest-secretnetwork-client",
   "private": true,
   "version": "1.0.0",
-  "description": "NestJS-based Secret Network client service",
+  "description": "A NestJS SecretNetwork client service based on the enigma/SecretJS SDK",
   "license": "MIT",
   "scripts": {
     "prebuild": "rimraf dist",
@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@iov/crypto": "^2.5.0",
     "@nestjs/common": "^7.6.15",
     "@nestjs/config": "^0.6.3",
     "@nestjs/core": "^7.6.15",

@@ -3,12 +3,129 @@
   "title": "InitMsg",
   "type": "object",
   "required": [
-    "count"
+    "data_source",
+    "oracle_name",
+    "oracle_value_decimals"
   ],
   "properties": {
-    "count": {
+    "data_source": {
+      "type": "string"
+    },
+    "data_source_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "oracle_description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "oracle_name": {
+      "type": "string"
+    },
+    "oracle_price_pair": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/CurrencyPair"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "oracle_status": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/OracleStatus"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "oracle_type": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/OracleType"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "oracle_value_decimals": {
       "type": "integer",
-      "format": "int32"
+      "format": "int8"
+    }
+  },
+  "definitions": {
+    "CurrencyPair": {
+      "type": "object",
+      "required": [
+        "base",
+        "quote"
+      ],
+      "properties": {
+        "base": {
+          "$ref": "#/definitions/TokenInfo"
+        },
+        "quote": {
+          "$ref": "#/definitions/TokenInfo"
+        }
+      }
+    },
+    "OracleStatus": {
+      "type": "string",
+      "enum": [
+        "Testing",
+        "Running",
+        "Stopped"
+      ]
+    },
+    "OracleType": {
+      "type": "string",
+      "enum": [
+        "PriceFeed",
+        "Other"
+      ]
+    },
+    "TokenInfo": {
+      "description": "TokenInfo response",
+      "type": "object",
+      "required": [
+        "decimals",
+        "name",
+        "symbol"
+      ],
+      "properties": {
+        "decimals": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "name": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "total_supply": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Uint128"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "Uint128": {
+      "type": "string"
     }
   }
 }

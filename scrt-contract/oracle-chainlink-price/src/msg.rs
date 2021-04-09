@@ -1,27 +1,100 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+//use cosmwasm_std::{Binary, CosmosMsg, HumanAddr, Querier, StdResult, Uint128};
+use cosmwasm_std::{Uint128}; // , StdResult, StdError
+//use secret_toolkit::snip20::{register_receive_msg, token_info_query, transfer_msg, TokenInfo};
+//use secret_toolkit::snip20::{TokenInfo};
+
+//use crate::contract::BLOCK_SIZE;
+use crate::data::{CurrencyPair, 
+    OracleConfig, OracleStatus, OracleType, LatestRoundData};
+
+//#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 pub struct InitMsg {
-    pub count: i32,
+    pub oracle_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oracle_description: Option<String>, // TODO review if Binary
+    pub oracle_status: Option<OracleStatus>,
+    pub oracle_type: Option<OracleType>,
+    pub data_source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data_source_id: Option<String>,
+    pub oracle_value_decimals: i8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub oracle_price_pair: Option<CurrencyPair>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+impl InitMsg {
+    /*
+    fn validationError(msg: String) -> StdError {
+        return StdError::NotFound {kind: msg, backtrace: None};
+    }
+    pub fn validate(&self) -> StdResult<String> {
+        // oracle_type
+        match self.oracle_type {
+            None => return InitMsg::validationError({msg: String::from("Missing oracle type spec"}),
+            Some(otype) =>  match otype {
+                OracleType::PriceFeed => {
+                    match self.oracle_price_pair {
+                        None => self.validationError("Missing oracle_price_pair for oracle of type {}", String::from(OracleType::PriceFeed)),
+                    }
+                }
+            }
+        }
+        return Ok(String::from("init msg ok"));
+    }*/
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HandleMsg {
-    Increment {},
-    Reset { count: i32 },
+    SetLatestRoundData { data: LatestRoundData },
+    SetOracleStatus { status: OracleStatus }, 
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum HandleAnswer {
+    SetLatestRoundData { status: ResponseStatus },
+    SetOracleStatus { status: ResponseStatus },
+}
+
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    // GetCount returns the current count as a json-encoded number
-    GetCount {},
+    GetLatestRoundData {},
+    GetOracleContractInfo {},
+//    GetOracleStatus {},
 }
 
 // We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct CountResponse {
-    pub count: i32,
+#[derive(Serialize, Deserialize, Debug, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryAnswer {
+    GetLatestRoundData {
+        status: ResponseStatus,
+//        quote: TokenInfo,
+        latest_round_data: LatestRoundData,
+    },
+
+    GetOracleContractInfo {
+//        requests: u32,
+//        updates: u32,
+
+        updated_at: Uint128,
+        status: OracleStatus,
+    },
+    GetOracleConfig {
+        status: ResponseStatus,
+        config: OracleConfig,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ResponseStatus {
+    Success,
+    Failure,
 }

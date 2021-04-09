@@ -1,7 +1,7 @@
 [package]
 name = "oracle-chainlink-price"
 version = "0.1.0"
-authors = ["ja88a <r0g3r@tuta.io>"]
+authors = ["Jabba <r0g3r@tuta.io>"]
 edition = "2018"
 
 exclude = [
@@ -39,3 +39,9 @@ cosmwasm-storage = { git = "https://github.com/enigmampc/SecretNetwork", tag = "
 schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 snafu = { version = "0.6.3" }
+secret-toolkit = { git = "https://github.com/enigmampc/secret-toolkit" }
+#serde-json-wasm = "0.2.1"
+#chrono = { version = "0.4.19" }
+#subtle = { version = "2.2.3", default-features = false }
+#sha2 = { version = "0.9.1", default-features = false }
+#base64 = "0.12.3"

@@ -51,8 +51,7 @@
       ],
       "properties": {
         "current": {
-          "type": "integer",
-          "format": "int128"
+          "$ref": "#/definitions/Uint128"
         },
         "updated_at": {
           "$ref": "#/definitions/Uint128"

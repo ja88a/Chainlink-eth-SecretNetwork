@@ -65,7 +65,7 @@ pub enum HandleAnswer {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     GetLatestRoundData {},
-    GetOracleContractInfo {},
+    GetOracleConfig {},
 //    GetOracleStatus {},
 }
 
@@ -73,26 +73,25 @@ pub enum QueryMsg {
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryAnswer {
-    GetLatestRoundData {
-        status: ResponseStatus,
+    LatestRoundData {
 //        quote: TokenInfo,
-        latest_round_data: LatestRoundData,
+        data: LatestRoundData,
+        status: ResponseStatus,
     },
-
-    GetOracleContractInfo {
+    OracleStatus {
 //        requests: u32,
 //        updates: u32,
-
-        updated_at: Uint128,
-        status: OracleStatus,
-    },
-    GetOracleConfig {
+//        updated_at: Uint128,
+        data: OracleStatus,
         status: ResponseStatus,
-        config: OracleConfig,
+    },
+    OracleConfig {
+        data: OracleConfig,
+        status: ResponseStatus,
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)] //
 #[serde(rename_all = "snake_case")]
 pub enum ResponseStatus {
     Success,

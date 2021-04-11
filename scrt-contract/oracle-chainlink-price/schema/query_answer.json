@@ -5,17 +5,17 @@
     {
       "type": "object",
       "required": [
-        "get_latest_round_data"
+        "latest_round_data"
       ],
       "properties": {
-        "get_latest_round_data": {
+        "latest_round_data": {
           "type": "object",
           "required": [
-            "latest_round_data",
+            "data",
             "status"
           ],
           "properties": {
-            "latest_round_data": {
+            "data": {
               "$ref": "#/definitions/LatestRoundData"
             },
             "status": {
@@ -28,21 +28,21 @@
     {
       "type": "object",
       "required": [
-        "get_oracle_contract_info"
+        "oracle_status"
       ],
       "properties": {
-        "get_oracle_contract_info": {
+        "oracle_status": {
           "type": "object",
           "required": [
-            "status",
-            "updated_at"
+            "data",
+            "status"
           ],
           "properties": {
-            "status": {
+            "data": {
               "$ref": "#/definitions/OracleStatus"
             },
-            "updated_at": {
-              "$ref": "#/definitions/Uint128"
+            "status": {
+              "$ref": "#/definitions/ResponseStatus"
             }
           }
         }
@@ -51,17 +51,17 @@
     {
       "type": "object",
       "required": [
-        "get_oracle_config"
+        "oracle_config"
       ],
       "properties": {
-        "get_oracle_config": {
+        "oracle_config": {
           "type": "object",
           "required": [
-            "config",
+            "data",
             "status"
           ],
           "properties": {
-            "config": {
+            "data": {
               "$ref": "#/definitions/OracleConfig"
             },
             "status": {
@@ -104,8 +104,7 @@
       ],
       "properties": {
         "current": {
-          "type": "integer",
-          "format": "int128"
+          "$ref": "#/definitions/Uint128"
         },
         "updated_at": {
           "$ref": "#/definitions/Uint128"
@@ -117,6 +116,8 @@
       "type": "object",
       "required": [
         "data_source",
+        "data_source_id",
+        "oracle_description",
         "oracle_name",
         "oracle_status",
         "oracle_type",
@@ -128,16 +129,10 @@
           "type": "string"
         },
         "data_source_id": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         },
         "oracle_description": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": "string"
         },
         "oracle_name": {
           "type": "string"

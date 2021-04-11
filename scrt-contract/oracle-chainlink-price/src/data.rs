@@ -10,13 +10,13 @@ use crate::msg::{InitMsg};
 #[derive(Serialize, Deserialize, Debug, JsonSchema)]
 pub struct OracleConfig {
     pub oracle_name: String,
-    pub oracle_description: Option<String>,
+    pub oracle_description: String,
     pub oracle_status: OracleStatus, 
     pub oracle_type: OracleType,
     pub oracle_value_decimals: i8,
     pub oracle_price_pair: Option<CurrencyPair>,
     pub data_source: String,
-    pub data_source_id: Option<String>,
+    pub data_source_id: String,
     pub owner: CanonicalAddr, // TODO Check option HumanAddr
 }
 
@@ -28,7 +28,10 @@ impl OracleConfig {
 //        msg.validate()?;
         let oracle = OracleConfig { 
             oracle_name: msg.oracle_name,
-            oracle_description: msg.oracle_description,
+            oracle_description: match msg.oracle_description {
+                None => String::default(), //"".to_string(),
+                Some(desc) => desc,
+            },
             oracle_status: match msg.oracle_status {
                 None => OracleStatus::Testing,
                 Some(status) => status,
@@ -38,13 +41,30 @@ impl OracleConfig {
                 Some(otype) => otype,
             },
             data_source: msg.data_source,
-            data_source_id: msg.data_source_id,
+            data_source_id: match msg.data_source_id{
+                None => String::default(),
+                Some(id) => id,
+            },
             oracle_value_decimals: msg.oracle_value_decimals,
             oracle_price_pair: msg.oracle_price_pair,
             owner: owner_addr,
         };
         return Ok(oracle);
     }
+
+    pub fn default() -> OracleConfig {
+        return OracleConfig { 
+            oracle_name: String::default(),
+            oracle_description: String::default(),
+            oracle_status: OracleStatus::Testing,
+            oracle_type: OracleType::Other,
+            data_source: String::default(),
+            data_source_id: String::default(),
+            oracle_value_decimals: 0,
+            oracle_price_pair: None,
+            owner: CanonicalAddr::default(),
+        };
+    } 
 } 
 
 #[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
@@ -54,7 +74,7 @@ pub enum OracleStatus{
     Stopped,
 } 
 
-#[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema)]
 pub enum OracleType{
     PriceFeed,
 //    TokenMetrics,
@@ -71,9 +91,18 @@ pub struct CurrencyPair {
 #[derive(Serialize, Deserialize, Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct LatestRoundData {
-    current: i128, //int256,
-    updated_at: Uint128, //uint256,
+    pub current: Uint128, //int256, // TODO Review Problematic i128 support
+    pub updated_at: Uint128, //uint256,
 //    roundId: Uint128, //uint80,
 //    startedAt: Uint128, //uint256,
 //    answeredInRound: Uint128, //uint80,
+}
+
+impl LatestRoundData {
+    pub fn default() -> LatestRoundData {
+        return LatestRoundData { 
+            current: Uint128(0), 
+            updated_at: Uint128(0),
+        }
+    }
 }  

@@ -81,3 +81,65 @@ pub fn may_load<T: DeserializeOwned, S: ReadonlyStorage>(
         None => Ok(None),
     }
 }
+
+
+// ===============================================================================
+// ===============================================================================
+// ==
+// == TESTS
+// ==
+//
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cosmwasm_std::testing::{mock_dependencies, mock_env};
+//    use cosmwasm_std::{coins, from_binary};
+//    use cosmwasm_std::{StdResult, Querier, StdError, Binary};
+    use cosmwasm_std::{StdResult};
+    use serde::{Deserialize, Serialize};
+
+    static STORE_KEY_TEST: &[u8] = b"testKey";
+    #[derive(Serialize, Deserialize, Debug)]
+    struct SampleState {
+        test_str: String,
+    }
+
+    #[test]
+    fn save_simple() {
+        let mut deps = mock_dependencies(20, &[]);
+
+        let state = SampleState {
+            test_str: String::from("test string"),
+        };
+        //config(&mut deps.storage).save(&state);
+        let result:StdResult<()> = save(&mut deps.storage, STORE_KEY_TEST, &state);
+        result.expect("Failed at saving test data");
+    }
+
+    #[test]
+    fn save_and_read_simple() {
+        let mut deps = mock_dependencies(20, &[]);
+
+        let state = SampleState {
+            test_str: String::from("test string"),
+        };
+        
+        println!("Saving data in storage:\n{:#?}", state);
+        let save_res:StdResult<()> = save(&mut deps.storage, STORE_KEY_TEST, &state);
+        save_res.expect("Failed at saving test data");
+
+        let load_res: StdResult<SampleState> = load(&deps.storage, STORE_KEY_TEST);
+        match &load_res {
+            Ok(state_stored) => {
+                println!("Loaded data from storage:\n{:#?}", state_stored);
+            },
+            Err(error) => {
+                println!("Failed to load data from storage:\n{:#?}", error);
+            },
+        };
+
+        let state_stored = load_res.unwrap();
+        assert_eq!("test string", state_stored.test_str)
+    }
+}

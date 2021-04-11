@@ -6,6 +6,9 @@ all:
 	wasm-opt -Os ./contract.wasm -o ./contract-opt.wasm
 	cat ./contract-opt.wasm | gzip -9 > ./contract-opt.wasm.gz
 
+test: 
+	RUST_BACKTRACE=0 cargo test
+
 clean:
 	cargo clean
 	-rm -f ./contract*.wasm*

@@ -78,7 +78,7 @@ export class ScrtConnectService {
 
   private async _initAccountParams(
     random = false,
-    _mnemonic?: string
+    _mnemonic?: string,
   ): Promise<{ pubKey: PubKey; address: string; signingPen: Secp256k1Pen }> {
     const mnemonicExt = _mnemonic || this.configService.get<string>('SECRET_MNEMONIC');
     let mnemonic = '';
@@ -122,7 +122,7 @@ export class ScrtConnectService {
         '\n\tbalance: ' +
         account.balance +
         '\n\tpubKey: ' +
-        account.pubkey
+        account.pubkey,
     );
 
     return account;
@@ -131,7 +131,7 @@ export class ScrtConnectService {
   async initScrtClientSigning(
     randomAccount = false,
     _mnemonic?: string,
-    nodeUrl?: string
+    nodeUrl?: string,
   ): Promise<SigningCosmWasmClient> {
     const connectUrl = nodeUrl ? nodeUrl : this.configService.get<string>('SECRET_REST_URL');
     const accountParams = await this._initAccountParams(randomAccount, _mnemonic);
@@ -144,7 +144,7 @@ export class ScrtConnectService {
       connectUrl,
       accountParams.address,
       (signBytes) => accountParams.signingPen.sign(signBytes),
-      txEncryptionSeed
+      txEncryptionSeed,
     );
 
     return clientSigning;
@@ -167,7 +167,7 @@ export class ScrtConnectService {
         '\n\tBalance:\t' +
         balance +
         ' ' +
-        account.balance[0].denom
+        account.balance[0].denom,
     );
 
     return {

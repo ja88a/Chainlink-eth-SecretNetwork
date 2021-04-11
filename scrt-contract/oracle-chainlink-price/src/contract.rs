@@ -9,7 +9,7 @@ use cosmwasm_std::{
 };
 
 use crate::msg::{InitMsg, QueryMsg, QueryAnswer, HandleMsg, HandleAnswer, ResponseStatus};
-use crate::store::{config, config_read, load, save, STORE_KEY_CONFIG, STORE_KEY_DATA};
+use crate::store::{config, load, save, STORE_KEY_CONFIG, STORE_KEY_DATA};
 use crate::data::{OracleConfig, LatestRoundData, OracleStatus};
 
 use secret_toolkit::utils::{pad_handle_result, pad_query_result};

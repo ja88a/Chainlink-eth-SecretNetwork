@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 //use cosmwasm_std::{Binary, CosmosMsg, HumanAddr, Querier, StdResult, Uint128};
-use cosmwasm_std::{Uint128}; // , StdResult, StdError
+//use cosmwasm_std::{Uint128}; // , StdResult, StdError
 //use secret_toolkit::snip20::{register_receive_msg, token_info_query, transfer_msg, TokenInfo};
 //use secret_toolkit::snip20::{TokenInfo};
 

@@ -93,7 +93,7 @@ pub fn may_load<T: DeserializeOwned, S: ReadonlyStorage>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env};
+    use cosmwasm_std::testing::{mock_dependencies};
 //    use cosmwasm_std::{coins, from_binary};
 //    use cosmwasm_std::{StdResult, Querier, StdError, Binary};
     use cosmwasm_std::{StdResult};

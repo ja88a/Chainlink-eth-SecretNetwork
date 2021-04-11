@@ -3,7 +3,7 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use oracle_chainlink_price::msg::{InitMsg, HandleMsg, HandleAnswer, QueryMsg, QueryAnswer};
+use cw_scrt_oracle_price::msg::{InitMsg, HandleMsg, HandleAnswer, QueryMsg, QueryAnswer};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();

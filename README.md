@@ -13,7 +13,7 @@ Some of the key tools / tech this project benefits from:
 - [Secret Network](https://github.com/enigmampc/SecretNetwork) toolkits, reference docs and sample apps
 - [CosmWasm](https://github.com/CosmWasm/cosmwasm) excellent toolkit and reference documentation
 - [RustUp](https://rustup.rs) full featured Rust toolchain manager, with Cargo & rustc
-- [Chainlink](https://chain.link) tools, vision and their off-chain / on-chain solution design
+- [Chainlink](https://chain.link) tools, vision and their off-chain / on-chain integration design
 
 ## Tech Requirements
 

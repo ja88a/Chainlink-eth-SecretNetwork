@@ -3,16 +3,16 @@
 ## General
 This repository contains the source of services and contracts for bridging Chainlink Oracle contracts' data towards Secret Network contracts. 
 
-The overall solution and thoughts are reported in this project [https://github.com/ja88a/Chainlink-eth-SecretNetwork/wiki](wiki).
+The overall solution and thoughts are reported in this project [wiki](https://github.com/ja88a/Chainlink-eth-SecretNetwork/wiki).
 
-The project was developped, and still is, in the context of the Chainlink Spring 2021 Hackathon. Its proof-of-concept submission made on 2021-04-11 is available in devpost.com [https://devpost.com/software/chainlink-oracles-bridge-to-secret-network](here).
+The project was developped, and still is, in the context of the Chainlink Spring 2021 Hackathon. Its proof-of-concept submission made on 2021-04-11 is available in devpost.com [here](https://devpost.com/software/chainlink-oracles-bridge-to-secret-network).
 
 Some of the key tools / tech this project benefits from:
-- [https://nestjs.com](NestJS) Best TypeScript app server development option
-- [https://github.com/ethers-io/ethers.js](Ethers) Ethereum network client SDK in TypeScript
-- [https://rustup.rs](RustUp) The full featured Rust toolchain installer
-- [https://github.com/enigmampc/SecretNetwork](Secret Network) toolkits, ref docs and apps
-- [https://github.com/CosmWasm/cosmwasm](CosmWasm) toolkits, ref docs and apps
+- [NestJS](https://nestjs.com) Best TypeScript app server development option
+- [Ethers](https://github.com/ethers-io/ethers.js) Ethereum network client SDK in TypeScript
+- [RustUp](https://rustup.rs) The full featured Rust toolchain installer
+- [Secret Network](https://github.com/enigmampc/SecretNetwork) toolkits, ref docs and apps
+- [CosmWasm](https://github.com/CosmWasm/cosmwasm) toolkits, ref docs and apps
 
 ## Tech Requirements
 

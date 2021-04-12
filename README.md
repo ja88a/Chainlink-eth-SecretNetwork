@@ -1,14 +1,27 @@
-# Chainlink Oracles Data Bridge to the Secret Network
+# Chainlink Oracles Data Bridge to Secret Network
 
-This repository contains the source for bridging Chainlink Oracle contracts' data towards Secret Network contracts. 
+## General
+This repository contains the source of services and contracts for bridging Chainlink Oracle contracts' data towards Secret Network contracts. 
 
-Each module must document its own required parameters and output format.
+The overall solution and thoughts are reported in this project [https://github.com/ja88a/Chainlink-eth-SecretNetwork/wiki](wiki).
 
-/!\ WORK IN PROGRESS - Not much usable yet! /!\
+The project was developped, and still is, in the context of the Chainlink Spring 2021 Hackathon. Its proof-of-concept submission made on 2021-04-11 is available in devpost.com [https://devpost.com/software/chainlink-oracles-bridge-to-secret-network](here).
 
-## Requirements
+Some of the key tools / tech this project benefits from:
+- [https://nestjs.com](NestJS) Best TypeScript app server development option
+- [https://github.com/ethers-io/ethers.js](Ethers) Ethereum network client SDK in TypeScript
+- [https://rustup.rs](RustUp) The full featured Rust toolchain installer
+- [https://github.com/enigmampc/SecretNetwork](Secret Network) toolkits, ref docs and apps
+- [https://github.com/CosmWasm/cosmwasm](CosmWasm) toolkits, ref docs and apps
+
+## Tech Requirements
 
 - Yarn
+- Docker for running the services, and fully optimizing the Secret contracts
+- Cargo and corresponding Rust toolkit for the Secret oracle contract development
+- GNU Make to benefit from build scripts
+ 
+Each module should define its own dependencies and provide minimum guidance. Still there are many different frameworks and technics used in order the full end-to-end solution.
 
 ## Install
 
@@ -16,7 +29,7 @@ Each module must document its own required parameters and output format.
 yarn
 ```
 
-Installs packages for all workspaces.
+Installs packages for all workspaces. Except for the Secret oracle contracts' dev projects. 
 
 ## Setup
 

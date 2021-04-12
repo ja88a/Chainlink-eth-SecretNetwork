@@ -10,9 +10,9 @@ The project was developped, and still is, in the context of the Chainlink Spring
 Some of the key tools / tech this project benefits from:
 - [NestJS](https://nestjs.com) Best TypeScript app server development option
 - [Ethers](https://github.com/ethers-io/ethers.js) Ethereum network client SDK in TypeScript
-- [RustUp](https://rustup.rs) The full featured Rust toolchain installer
-- [Secret Network](https://github.com/enigmampc/SecretNetwork) toolkits, ref docs and apps
-- [CosmWasm](https://github.com/CosmWasm/cosmwasm) toolkits, ref docs and apps
+- [RustUp](https://rustup.rs) full featured Rust toolchain manager, with Cargo & rustc
+- [Secret Network](https://github.com/enigmampc/SecretNetwork) toolkits, reference docs and sample apps
+- [CosmWasm](https://github.com/CosmWasm/cosmwasm) toolkit and ref docs
 
 ## Tech Requirements
 

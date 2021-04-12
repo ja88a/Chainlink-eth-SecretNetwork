@@ -1,7 +1,7 @@
 # Chainlink Oracles Data Bridge to Secret Network
 
 ## General
-This repository contains the source of services and contracts for bridging Chainlink Oracle contracts' data towards Secret Network contracts. 
+This mono repo contains the source of services and contracts development projects for bridging [Chainlink oracle](https://data.chain.link) contracts' data towards [Secret Network](https://scrt.network) contracts. 
 
 The overall solution and thoughts are reported in this project [wiki](https://github.com/ja88a/Chainlink-eth-SecretNetwork/wiki).
 
@@ -14,6 +14,10 @@ Some of the key tools / tech this project benefits from:
 - [CosmWasm](https://github.com/CosmWasm/cosmwasm) excellent toolkit and reference documentation
 - [RustUp](https://rustup.rs) full featured Rust toolchain manager, with Cargo & rustc
 - [Chainlink](https://chain.link) tools, vision and their off-chain / on-chain integration design
+
+## Status
+Work is still in progress to finalize the full end-to-end integration.
+It is planned to have a fully running v0.1 by April 2021.
 
 ## Tech Requirements
 

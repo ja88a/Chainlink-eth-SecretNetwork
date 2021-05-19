@@ -1,13 +1,13 @@
 {
-  "name": "@ja88a/clrelay-monorepo-root",
+  "name": "@relayd/monorepo-root",
   "description": "Monorepo root project for the relay of Chainlink Oracles data to Secret Network contracts",
   "version": "0.1.0",
   "author": "Jabba Theone <ja88a@users.noreply.github.com>",
   "license": "MIT",
   "private": true,
   "workspaces": [
-    "watch-eth",
-    "update-sn",
+    "eth-client",
+    "scrt-client",
     "feed-handler"
   ],
   "main": "dist/index.js",

@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 //import { Transport } from '@nestjs/microservices';
 import { configMS} from "./configMS";
-import { configKafka } from './jobhandler/clRelay.config';
+import { configKafka } from './clRelay.config';
 import { ClRelayModule } from './jobhandler/clRelay.module';
 
 async function bootstrap() {

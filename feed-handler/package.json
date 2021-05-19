@@ -1,7 +1,7 @@
 {
-  "name": "@ja88a/clrelay-bridge",
+  "name": "@relayd/feed-handler",
   "version": "0.1.0",
-  "description": "Chainlink Oracle Data Relay Bridge, based on Kafka",
+  "description": "Chainlink Oracle Data Relaying Handler",
   "author": "Jabba Theone",
   "license": "MIT",
   
@@ -27,10 +27,6 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@ja88a/clrelay-ethereum-client": "^0.1.0",
-    "@ja88a/clrelay-secretnetwork-client": "^0.1.0",
-
-    "@kafkajs/confluent-schema-registry": "^2.0.1",
     "@nestjs/common": "^7.6.15",
     "@nestjs/config": "^0.6.3",
     "@nestjs/core": "^7.6.15",

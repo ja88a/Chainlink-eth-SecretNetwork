@@ -1,6 +1,6 @@
 import { Controller, Get, Logger, Param } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { ethers } from 'ethers';
+import { ethers, Event } from 'ethers';
 import { Result } from 'ethers/lib/utils';
 import { Decimals, EthConnectService } from './eth-connect.service';
 
@@ -20,7 +20,8 @@ export class EthConnectController {
     this.ethConnectService.logProviderConnection(this.provider);
 
     this.ethConnectService.initOracleContracts(this.provider);
-    this.start();
+    
+    //this.start();
   }
 
   // http://localhost:3000/eth/start
@@ -57,16 +58,23 @@ export class EthConnectController {
 
   // http://localhost:3000/eth/event/answerUpdated/btcusd
   @Get('/eth/event/answerUpdated/:pair')
-  loadEvents(@Param('pair') pair: string): string {
+  loadEventAnswerUpdated(@Param('pair') pair: string): string {
     const contract = this.ethConnectService.getOracleContracts().get(pair);
     if (!contract) {
       this.logger.warn('Unknown contract key requested "' + pair + '" for loading events answerUpdated');
       return '404';
     }
     this.ethConnectService
-      .loadEventAnswerUpdated(contract)
-      .then((events) => {
-        //this.logger.log('got something: ' + events);
+      .loadEventAnswerUpdated(contract, 200)
+      .then((events: Event[]) => {
+        events?.forEach(updEvent => {
+          if (updEvent.decodeError) {
+            this.logger.warn("Event Decode Error found for AnswerUpdated on "+ contract.address + ' ' + updEvent.decodeError)
+          }
+          this.logger.debug(updEvent);
+          //this.logger.log('Current value: ' + updEvent.decode('data'));
+        });
+        this.logger.log('got something: ' + events);
       })
       .catch((error) => this.logger.error(error));
     return '200';
@@ -81,11 +89,24 @@ export class EthConnectController {
       return '404';
     }
     this.ethConnectService
-      .loadLogEventAnswerUpdated(contract, 10, 200, 4)
+      .loadLogEventAnswerUpdated(contract, 10, 1000, 10)
       .then((events) => {
         this.logger.log('Found ' + events.length + ' logged event(s) "AnswerUpdated" for ' + pair);
       })
       .catch((error) => this.logger.error(error));
+    return '200';
+  }
+
+  // http://localhost:3000/eth/event/listen/btcusd
+  @Get('eth/event/listen/:pair')
+  listenEventAnswerUpdated(@Param('pair') pair: string): string {
+    const contract = this.ethConnectService.getOracleContracts().get(pair);
+    if (!contract) {
+      this.logger.warn('Unknown contract key requested "' + pair + '" for listening to events AnswerUpdated');
+      return '404';
+    }
+    this.ethConnectService
+      .listenEventOracleAnswerUpdated(contract);
     return '200';
   }
 }

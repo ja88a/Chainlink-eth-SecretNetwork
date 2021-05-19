@@ -1,21 +1,44 @@
 {
-  "name": "@ja88a/chainlink-oracles-bridge",
-  "version": "0.0.1",
+  "name": "@ja88a/clrelay-monorepo-root",
+  "description": "Monorepo root project for the relay of Chainlink Oracles data to Secret Network contracts",
+  "version": "0.1.0",
+  "author": "Jabba Theone <ja88a@users.noreply.github.com>",
   "license": "MIT",
   "private": true,
   "workspaces": [
     "watch-eth",
-    "update-sn"
+    "update-sn",
+    "feed-handler"
   ],
+  "main": "dist/index.js",
+  "types": "types/index.d.ts",
+  "files": [
+    "dist/",
+    "types/",
+    "*.md",
+    "!*.spec.*",
+    "!**/testdata/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ja88a/Chainlink-eth-SecretNetwork"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "lint": "yarn workspaces run lint",
-    "lint:fix": "yarn workspaces run lint:fix",
+    "build": "lerna run build",
+    "docs": "lerna run docs",
+    "format": "lerna run format",
+    "format-text": "prettier --write --prose-wrap always --print-width 80 \"./*.md\" \"./docs/**/*.md\" \"./scripts/**/*.{json,md}\" && lerna run format-text",
+    "lint": "lerna run lint",
+    "lint:fix": "lerna run lint-fix",
     "setup": "yarn wsrun -mre -t setup && yarn wsrun -mre -t setup",
-    "test": "yarn workspaces run test",
     "test:unit": "yarn workspaces run test:unit",
     "test:integration": "yarn workspaces run test:integration",
-    "test:example": "yarn workspace @ja88a/nest-ethers-client test",
-    "test:example-start-server": "node ./helpers/server.js"
+    "test:example": "yarn workspace @ja88a/clrelay-ethereum-client test",
+    "test:example-start-server": "node ./helpers/server.js",
+    "test": "lerna run test"
   },
   "devDependencies": {
     "@tsconfig/node12": "^1.0.7",
@@ -28,7 +51,9 @@
     "eslint-plugin-prettier": "^3.1.4",
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-standard": "^4.0.1",
+    "lerna": "^4.0.0",
     "prettier": "^2.0.5",
+    "shx": "^0.3.3",
     "ts-node": "^8.10.2",
     "typescript": "^4.2.3",
     "wsrun": "^5.2.4"

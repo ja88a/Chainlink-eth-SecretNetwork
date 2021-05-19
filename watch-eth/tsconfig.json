@@ -1,18 +1,19 @@
 {
+  "extends": "../tsconfig.json",
+
   "compilerOptions": {
-    "module": "commonjs",
-    "declaration": true,
-    "removeComments": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "target": "es2017",
-    "sourceMap": true,
+    // "rootDir": "src",
     "outDir": "./dist",
     "baseUrl": "./",
-    "incremental": true,
+    "declarationDir": "./dist/types",
     "typeRoots" : ["./typings"],
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-  }
+    // "paths": {
+    //   "*": ["types/*"]
+    // },
+    // "declaration": true
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": ["node_modules", "dist"]
 }

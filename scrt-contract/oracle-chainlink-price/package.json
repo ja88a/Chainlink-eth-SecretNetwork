@@ -1,0 +1,14 @@
+{
+    "name": "convert-schema-to-typescript-def",
+    "version": "0.1.0",
+    "description": "",
+    "main": "script/convert-schema-to-definition.js",
+    "scripts": {
+      "schema::convert": "npm run schema::clean && node script/convert-schema-to-definition.js",
+      "schema::clean": "rm -f dist/contract.d.ts"
+    },
+    "dependencies": {
+      "@types/node": "~14.14.37",
+      "compile-schemas-to-typescript": "^0.2.0"
+    }
+}

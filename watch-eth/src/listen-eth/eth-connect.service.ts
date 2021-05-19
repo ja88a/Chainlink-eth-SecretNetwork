@@ -85,7 +85,10 @@ export class EthConnectService {
   // kovan: 0x396c5E36DD0a0F5a5D33dae44368D4193f69a1F0
   // rinkeby: 0xd8bD0a1cB028a31AA859A21A3758685a95dE4623, https://rinkeby.etherscan.io/address/0xd8bD0a1cB028a31AA859A21A3758685a95dE4623#readContract
   //
-  initOracleContractList(network?: string, contractAddrExt?: Map<string, string>): void {
+  initOracleContractList(
+    network?: string, 
+    contractAddrExt?: Map<string, string>
+  ): void {
     if (contractAddrExt) {
       this.contractAddr = contractAddrExt;
     } else {
@@ -103,8 +106,9 @@ export class EthConnectService {
           break;
 
         default:
-          this.contractAddr.set(CstPair.BTCUSD, 'btc-usd.data.eth'); // 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c
-          this.contractAddr.set(CstPair.ETHUSD, 'eth-usd.data.eth'); // 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419
+          this.contractAddr.set(CstPair.BTCUSD, 'btc-usd.data.eth'); // 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c (EACAggregatorProxy)
+          this.contractAddr.set(CstPair.BTCUSD, '0x7104ac4abcecf1680f933b04c214b0c491d43ecc'); // (AccessControlledOffchain, events: https://etherscan.io/address/0x7104ac4abcecf1680f933b04c214b0c491d43ecc#events)
+          this.contractAddr.set(CstPair.ETHUSD, 'eth-usd.data.eth'); // 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419 (EACAggregatorProxy)
           //this.contractAddr.set(CstPair.LINKUSD, 'link-usd.data.eth'); // 0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c
           break;
       }
@@ -123,7 +127,9 @@ export class EthConnectService {
    * @param provider web3 provider for ETH
    * @returns
    */
-  initOracleContracts(provider: ethers.providers.Provider): Map<string, Contract> {
+  initOracleContracts(
+    provider: ethers.providers.Provider
+  ): Map<string, Contract> {
     //let contractRef: string[];
     if (!this.getContractAddrList()) this.initOracleContractList();
 
@@ -134,7 +140,7 @@ export class EthConnectService {
     });
     return this.oracleContracts;
   }
-
+ 
   getOracleContracts(): Map<string, Contract> {
     return this.oracleContracts;
   }
@@ -148,7 +154,9 @@ export class EthConnectService {
    * @param oracleContractMap optional provisioning of a list of oracle contracts, else the already initiatialized list is considered
    * @returns loaded ETH oracle contracts' data
    */
-  async loadAllContractData(oracleContractMap?: Map<string, Contract>): Promise<Map<string, Result>> {
+  async loadAllContractData(
+    oracleContractMap?: Map<string, Contract>
+  ): Promise<Map<string, Result>> {
     if (!oracleContractMap) oracleContractMap = this.getOracleContracts();
     const contractData: Map<string, Result> = new Map();
 
@@ -190,34 +198,53 @@ export class EthConnectService {
     return this.oracleContractData;
   }
 
-  //
-  // Listening to Event 'AnswerUpdated'
-  //
-  listenOnOracleEvent(contractOracle: Contract, oracleEventFilter: EventFilter): void {
-    contractOracle.on(oracleEventFilter, (result: any) => {
-      this.logger.warn('Found something! ' + result);
+  /** 
+   * Listening to Events on a contract
+   */
+  listenToEvent(
+    contract: Contract, 
+    eventFilter: EventFilter
+  ): void {
+    contract.on(eventFilter, (result: any) => {
+      this.logger.warn('HEARD something! ' + result);
     });
 
     try {
-      const filter2: EventFilter = contractOracle.filters.AnswerUpdated();
+      const filter2: EventFilter = contract.filters.AnswerUpdated();
       this.logger.debug(
         'Initialized filter2: ' + filter2 + ' Address=' + filter2.address + ' Topic: ' + filter2.topics
       );
-      contractOracle.on(filter2, (current, roundId, updatedAt) => {
+      contract.on(filter2, (current, roundId, updatedAt) => {
         this.logger.warn('Found an AnswerUpdated!!!! current=' + current + ' round=' + roundId + ' at=' + updatedAt);
       });
     } catch (error) {
-      this.logger.error('Failed to listen on filter AnswerUpdated!');
+      this.logger.error('Failed to listen on filter AnswerUpdated!\n'+error, error);
     }
   }
 
-  //
-  // Load with Events Filtering on 'AnswerUpdated'
-  //
-  async loadEventAnswerUpdated(contractOracle: Contract, overMaxPastBlock?: number): Promise<Event[]> {
-    const blockNbLatest = await contractOracle.provider.getBlockNumber();
-    const fromBlockStart = blockNbLatest - (overMaxPastBlock > 0 ? overMaxPastBlock : 1000);
+  // Listen to Event 'AnswerUpdated'
+  // Topic0: 0x0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f
+  listenEventOracleAnswerUpdated(
+    contractOracle: Contract, 
+  ): void {
     const eventId = ethers.utils.id('AnswerUpdated(int256,uint256,uint256)');
+    let eventFilterAnswerUpd: EventFilter = {
+      //address: contractOracle.address,
+      topics: [eventId]
+    };
+    this.listenToEvent(contractOracle, eventFilterAnswerUpd);
+  }
+
+  /**
+   * Query past events on a contract
+   */
+  async loadContractEvent(
+    contract: Contract,
+    eventId: string,  
+    overMaxPastBlock?: number
+  ): Promise<Event[]> {
+    const blockNbLatest = await contract.provider.getBlockNumber();
+    const fromBlockStart = blockNbLatest - (overMaxPastBlock > 0 ? overMaxPastBlock : 1000);
 
     // https://docs.ethers.io/v5/api/contract/contract/#Contract--events
     const oracleEventFilter: EventFilter = {
@@ -225,18 +252,31 @@ export class EthConnectService {
       topics: [eventId],
     };
 
-    this.logger.debug('Load events AnswerUpdated from block ' + fromBlockStart + ' id=' + eventId);
+    this.logger.debug('Load events AnswerUpdated on '+contract.address+' from block ' + fromBlockStart + ' eventId=' + eventId);
 
-    return await contractOracle
+    return await contract
       .queryFilter(oracleEventFilter, fromBlockStart)
       .then((result: Event[]) => {
-        this.logger.log('Load events AnswerUpdated found ' + result?.length + ' matching events');
+        this.logger.log('Loaded events AnswerUpdated. Found ' + result?.length + ' matching events');
         return result;
       })
       .catch((error) => {
         throw new Error('Failed to load events AnswerUpdated\n' + error);
       });
   }
+
+  // Query a contract for past Events with filtering on 'AnswerUpdated(int256,uint256,uint256)'
+  // Topic0: 0x0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f
+  async loadEventAnswerUpdated(
+    contractOracle: Contract, 
+    overMaxPastBlock?: number
+  ): Promise<Event[]> {
+    const eventId = ethers.utils.id('AnswerUpdated(int256,uint256,uint256)');
+    return this.loadContractEvent(contractOracle, eventId, overMaxPastBlock);
+  }
+
+
+
 
   // prov.getBlockNumber().then((blockNum) => {
   //   this.logger.log('Query - current block is ' + blockNum);
@@ -268,7 +308,7 @@ export class EthConnectService {
     let blockNumberIndex = 0;
     const blockNbLatest = await contract.provider.getBlockNumber();
     const olderBlockNb = blockNbLatest - (overMaxNbBlocks > 0 ? overMaxNbBlocks : 1000) - 1;
-    const blockLotSize = nbBlockPerLogReq > 0 ? nbBlockPerLogReq : 4;
+    const blockLotSize = nbBlockPerLogReq > 0 ? nbBlockPerLogReq : 5;
 
     // array for the logs
     let logs = [];
@@ -277,32 +317,50 @@ export class EthConnectService {
     // start from latest block number
     blockNumberIndex = blockNbLatest;
 
+    this.logger.log(`Initiating Load of logged events for ${contract.address} with max ${maxNbResults} results over last ${overMaxNbBlocks} blocks`);
+
     // while loop runs until there are as many responses as desired
     while (logs.length < maxNbResults && blockNumberIndex > olderBlockNb) {
+//      this.logger.debug('Querying logs from block '+(blockNumberIndex-blockLotSize+1)+' to '+blockNumberIndex);
       const data = await contract.provider
         .getLogs({
           address: contract.address,
-          // both fromBlock and toBlock are the index, meaning only one block's logs are pulled
-          fromBlock: blockNumberIndex,
-          toBlock: blockNumberIndex - (blockLotSize - 1),
+          fromBlock: blockNumberIndex - (blockLotSize - 1),
+          toBlock: blockNumberIndex,
         })
         .then((tempLogs: ethers.providers.Log[]) => {
           if (tempLogs.length > 0) {
-            this.logger.debug(`BLOCK: ${blockNumberIndex} NUMBER OF LOGS: ${tempLogs.length}`);
+            this.logger.debug(`Block ${blockNumberIndex} has ${tempLogs.length} LOG entries`);
             logs = logs && logs.length > 0 ? [...logs, ...tempLogs] : [...tempLogs];
 
+            // AnswerUpdated events specific
             // returns an array with the decoded events
             const decodedEvents = logs.map((log) => {
               iface.decodeEventLog('AnswerUpdated', log.data);
             });
+            if (decodedEvents) {
+              decodedEvents.forEach(dEvent => {
+                this.logger.debug('Event# '+dEvent);
+              });
+              const currentValue = decodedEvents.map((event) => {
+                this.logger.debug('Event '+event);
+                if (event != null)
+                  event['values']['current']
+                else
+                  null
+              });
+              //const roundId = decodedEvents.map((event) => event['values']['roundId']);
+              //const updatedAt = decodedEvents.map((event) => event['values']['updatedAt']);
 
-            const currentValue = decodedEvents.map((event) => event['values']['current']);
-            const roundId = decodedEvents.map((event) => event['values']['roundId']);
-            const updatedAt = decodedEvents.map((event) => event['values']['updatedAt']);
+              //this.logger.log('Found logged event AnswerUpdated: current=' + currentValue + ' at=' + updatedAt + 'roundId=' + roundId);
 
-            this.logger.log('Found event log roundId=' + roundId + ' current=' + currentValue + ' at=' + updatedAt);
+              //return [roundId, currentValue, updatedAt];
 
-            return [roundId, currentValue, updatedAt];
+              this.logger.log('Found logged event AnswerUpdated: current=' + currentValue);
+              return [currentValue];           
+            }
+            else 
+              return[];
           } else {
             return [];
           }

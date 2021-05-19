@@ -15,8 +15,9 @@ export class ScrtContractController {
   }
 
   // http://localhost:3000/scrt/connect/info
-  @Get('/scrt/contract/info')
-  async connect(): Promise<any> {
+  @Get('/scrt/contract/query/:type')
+  async query(): Promise<any> {
+    
     return null;
   }
 

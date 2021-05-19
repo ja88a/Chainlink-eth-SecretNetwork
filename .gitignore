@@ -7,3 +7,5 @@ cache
 .env
 *.code-workspace
 Cargo.lock
+tsconfig.build.tsbuildinfo
+*.7z

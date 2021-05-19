@@ -5,7 +5,7 @@ import { HttpErrorByCode } from '@nestjs/common/utils/http-error-by-code.util';
 
 @Controller()
 export class ScrtConnectController {
-  private readonly logger = new Logger(ScrtConnectService.name);
+  private readonly logger = new Logger(ScrtConnectController.name);
 
   //private scrtClient: CosmWasmClient;
 

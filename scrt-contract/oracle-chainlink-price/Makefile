@@ -43,6 +43,10 @@ wasm-scrt: ## Build an optimized contract wasm for SecretNetwork, based on Docke
 schema: ## Generate contract schema
 	cargo schema
 
+schema-convert:
+	npx compile-schemas-to-typescript ./schema ./dist/types
+	cat dist/types/*.d.ts > dist/types/contract.d.ts
+
 test: ## Tests execution, as found in your crate lib
 	RUST_BACKTRACE=0 cargo test
 

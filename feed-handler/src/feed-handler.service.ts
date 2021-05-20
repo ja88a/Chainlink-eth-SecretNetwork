@@ -1,14 +1,15 @@
 import { Get, Injectable, Logger } from '@nestjs/common';
 import { Client, ClientKafka, MessagePattern, Payload, Ctx, KafkaContext, EventPattern } from '@nestjs/microservices';
-import { KafkaMessage } from 'kafkajs';
+import { KafkaMessage, Message, ProducerRecord } from 'kafkajs';
 import { Observable } from 'rxjs';
-import { configKafka } from './clRelay.config';
-import { FeedConfig, DataFeedEnableResult, TMessageType0 } from './clRelay.data';
+
+import { configKafka } from '@relayd/common';
+import { FeedConfig, DataFeedEnableResult, TMessageType0 } from '@relayd/common';
 
 @Injectable()
-export class ClRelayService {
+export class FeedHandlerService {
 
-  private readonly logger = new Logger(ClRelayService.name, true);
+  private readonly logger = new Logger(FeedHandlerService.name, true);
 
   @Client(configKafka)
   private client: ClientKafka;
@@ -51,8 +52,29 @@ export class ClRelayService {
   }
 
 
+  // working
+  //@Get('/test2')
+  sendTestMsg2(): string {
+    const newMsg0 = { id: '002', name: 'test002' };
+    const msg0: Message = {
+      key: 'newMsg',
+      value: JSON.stringify(newMsg0),
+    };
+    this.logger.log(`Sending msg: ${JSON.stringify(newMsg0)}`);
+    const record: ProducerRecord = {
+      topic: 'test.send.msg',
+      messages:[msg0] 
+    };
+    this.client.connect().then((producer)=>{
+      producer.send(record);
+    });
+
+    //this.client.send('', {'001', 'test001'});
+    return JSON.stringify(newMsg0);
+  }
+
   // =======================================================================
-  // -- TESTS
+  // -- Core
   // -----------------------------------------------------------------------
 
   async enableDataFeed(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {

@@ -1,34 +1,33 @@
-import { Body, Controller, Get, Logger, OnModuleInit, Post } from '@nestjs/common';
-import { ClRelayService } from './clRelay.service';
-import { Ctx, MessagePattern, KafkaContext, Payload } from '@nestjs/microservices';
-import { FeedConfig, DataFeedEnableResult, TMessageType0 } from './clRelay.data';
-import { UseFilters } from '@nestjs/common';
-import { CustExceptionFilter, HttpExceptionService } from './http.error';
-import { HttpStatus } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Logger, OnModuleInit, Post, UseFilters } from '@nestjs/common';
+import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
+
+import { DataFeedEnableResult, FeedConfig, TMessageType0, VALID_OPT } from '@relayd/common';
+
 import { validateOrReject } from 'class-validator';
-import { VALID_OPT } from './clRelay.config';
+import { FeedHandlerService } from './feed-handler.service';
+import { CustExceptionFilter, HttpExceptionService } from './http.error';
 
 @Controller()
-export class ClRelayController implements OnModuleInit {
+export class FeedHandlerController implements OnModuleInit {
   constructor(
-    private readonly clRelayService: ClRelayService,
+    private readonly feedHandlerService: FeedHandlerService,
     private readonly httpExceptionService: HttpExceptionService
     ) { }
 
-  private readonly logger = new Logger(ClRelayController.name, true);
+  private readonly logger = new Logger(FeedHandlerController.name, true);
 
   async onModuleInit() {
-    this.clRelayService.init();
+    this.feedHandlerService.init();
   }
 
   @Get('/relay/test/msg')
   sendTestMsg(): any {
-    return this.clRelayService.sendTestMsg();
+    return this.feedHandlerService.sendTestMsg();
   }
 
   @MessagePattern('test.send.msg')
   handleTestMsg(@Payload() message: TMessageType0, @Ctx() context: KafkaContext): any {
-    return this.clRelayService.handleTestMsg(message, context);
+    return this.feedHandlerService.handleTestMsg(message, context);
   }
 
   /**
@@ -49,7 +48,7 @@ export class ClRelayController implements OnModuleInit {
     });
     
     const result = await valid.then(() => {
-      const resultAction = this.clRelayService.enableDataFeed(feedConfig)
+      const resultAction = this.feedHandlerService.enableDataFeed(feedConfig)
       .then((actionRes: DataFeedEnableResult) => {
         this.logger.log('Data feed enabled: ' + JSON.stringify(actionRes));
         return actionRes;
@@ -61,6 +60,7 @@ export class ClRelayController implements OnModuleInit {
     });
     return result;
   }
+
 
 
 }

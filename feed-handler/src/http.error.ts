@@ -1,7 +1,8 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
-import { EErrorExt } from './clRelay.config';
+
+import { EErrorExt } from '@relayd/common';
 
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {

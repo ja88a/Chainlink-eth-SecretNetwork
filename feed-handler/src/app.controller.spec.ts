@@ -1,24 +1,24 @@
 import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { FeedHandlerController } from './feed-handler.controller';
+import { FeedHandlerService } from './feed-handler.service';
 
-describe('AppController', () => {
-  let appController: AppController;
+describe('ClRelayController', () => {
+  let appController: FeedHandlerController;
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       imports: [ConfigModule.forRoot()],
-      controllers: [AppController],
-      providers: [AppService],
+      controllers: [FeedHandlerController],
+      providers: [FeedHandlerService],
     }).compile();
 
-    appController = app.get<AppController>(AppController);
+    appController = app.get<FeedHandlerController>(FeedHandlerController);
   });
 
   describe('root', () => {
     it('should return "Chainlink Relayer here"', () => {
-      expect(appController.getHello()).toBe<string>('Chainlink Relayer here');
+      expect(appController.addFeedPricePair(null)).toBe<string>('Chainlink Relayer here');
     });
   });
 });

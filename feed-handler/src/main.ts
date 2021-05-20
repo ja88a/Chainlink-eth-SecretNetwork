@@ -1,15 +1,13 @@
 import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { NestFactory } from '@nestjs/core/nest-factory';
+//import { NestFactory } from '@nestjs/core';
 //import { Transport } from '@nestjs/microservices';
-import { configMS} from "./configMS";
-import { configKafka } from './clRelay.config';
-import { ClRelayModule } from './jobhandler/clRelay.module';
+import { FeedHandlerModule } from './feed-handler.module';
+import { configKafka } from '@relayd/common';
 
 async function bootstrap() {
-  // const app = await NestFactory.create();
 
-  const app = await NestFactory.create(AppModule, { // ClRelayModule
+  const app = await NestFactory.create(FeedHandlerModule, {
     // logger: ['error', 'warn'],
     // logger: false,
   });

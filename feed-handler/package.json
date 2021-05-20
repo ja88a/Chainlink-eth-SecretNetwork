@@ -4,10 +4,12 @@
   "description": "Chainlink Oracle Data Relaying Handler",
   "author": "Jabba Theone",
   "license": "MIT",
-  
+  "main": "dist/main.js",
+  "types": "dist/types/index.d.ts",
+
   "scripts": {
     "docs": "shx rm -rf docs && typedoc --options ../typedoc.js",
-    "move-types": "shx rm -rf ./types/* && shx cp -r dist/types ./types && rm -rf ./types/testdata && shx rm -f ./types/*.spec.d.ts && shx rm -f ./types/*.d.ts.map",
+    "move-types": "shx rm -rf ./types && shx cp -r dist/types ./types && shx rm -f ./types/*.spec.d.ts && shx rm -f ./types/*.d.ts.map",
     "format-types": "prettier --write --loglevel warn \"./types/**/*.d.ts\"",
     "build:raw": "shx rm -rf ./dist && tsc && yarn move-types && yarn format-types",
 
@@ -32,6 +34,7 @@
     "@nestjs/core": "^7.6.15",
     "@nestjs/microservices": "^7.6.15",
     "@nestjs/platform-express": "^7.6.15",
+    "@relayd/common": "^0.1.0",
     "class-transformer": "^0.4.0",
     "class-validator": "^0.13.1",
     "kafkajs": "^1.15.0",

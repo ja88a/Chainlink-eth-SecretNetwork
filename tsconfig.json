@@ -1,7 +1,7 @@
 {
 //  "extends": "@tsconfig/node12/tsconfig.json",
   "compilerOptions": {
-    // "rootDir": "src",
+    //  "rootDir": "src",
     // "outDir": "./dist",
     // "baseUrl": "./",
     // "lib": [
@@ -11,6 +11,11 @@
     //   "es2020.bigint",
     //   "es2020.string",
     //   "es2020.symbol.wellknown"
+    // ],
+    //"typeRoots" : ["./typings"],
+    // "types": [
+    //   "jest",
+    //   "node"
     // ],
     "module": "commonjs",
     "moduleResolution": "node",
@@ -32,5 +37,8 @@
     "resolveJsonModule": true,
     "sourceMap": true,
   },
+  "include": [
+    "src/**/*"
+  ],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,4 +1,3 @@
-// declare module '@relayd/feed-handler';
-export { ClRelayModule } from "./clRelay.module";
-//export { ClRelayController } from "./clRelay.controller";
-//export { ClRelayService }  from "./clRelay.service";
+//declare module '@relayd/feed-handler';
+//declare module '@relayd/common';
+export { FeedHandlerModule } from "./feed-handler.module";

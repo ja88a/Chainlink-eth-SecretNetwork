@@ -1,6 +1,5 @@
 node_modules
 dist
-*.zip
 .DS_Store
 cache
 .yarn
@@ -9,3 +8,4 @@ cache
 Cargo.lock
 tsconfig.build.tsbuildinfo
 *.7z
+private

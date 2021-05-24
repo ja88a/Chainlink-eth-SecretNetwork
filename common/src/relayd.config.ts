@@ -1,5 +1,5 @@
-import { ValidatorOptions } from "class-validator";
-import { KafkaOptions, Transport } from "@nestjs/microservices";
+import { ValidatorOptions } from 'class-validator';
+import { KafkaOptions, Transport } from '@nestjs/microservices';
 
 /**
  * Broker Kafka Server Configuration
@@ -9,9 +9,9 @@ export const configKafka: KafkaOptions = {
 
   options: {
     client: {
-      clientId: "CLRelayClient",
+      clientId: 'CLRelayClient',
       // TODO PROD Review ENV config
-      brokers: ["127.0.0.1:9092"],
+      brokers: ['127.0.0.1:9092'],
     },
     consumer: {
       groupId: 'CLRelay',

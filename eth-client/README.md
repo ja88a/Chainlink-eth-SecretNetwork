@@ -4,12 +4,13 @@
 
 Watch for data & their update on target chainlink oracle contracts (price feed Aggregators) deployed on the Ethereum network.
 
-It mostly deals with a wrapping of the [ethers-io/Ethers.js](https://github.com/ethers-io/ethers.js) ethereum client SDK, embedded in [NestJS](https://nestjs.com) modules.
+Technically it mostly deals with a wrapping of the [ethers-io/Ethers.js](https://github.com/ethers-io/ethers.js) ethereum client SDK, embedded in [NestJS](https://nestjs.com) modules.
 
 2 main methods are implemented in order to extract price changes from a Chainlink oracle contract & trigger an update event: 
 * listening to contracts emitted events 'AnswerUpdated', using a web socket connection
-* cron-based regular pulling of contracts data 'latestRoundData'
+* cron-based regular polling of contracts data 'latestRoundData'
 
+There are 2 main APIs exposed to interact with this service: a REST API & a Kafka one.
 
 ## Requirements
 
@@ -17,7 +18,8 @@ It mostly deals with a wrapping of the [ethers-io/Ethers.js](https://github.com/
 - Web3 Provider: either an online Ethereum Web3 Provider or a local provider is deployed, e.g. OpenEthereum
 
 
-## Install
+## Basics
+### Install
 
 ```bash
 yarn
@@ -26,16 +28,19 @@ yarn
 Installs packages for all workspaces.
 
 
-## Setup
+### Build
 
-### Basic
 ```bash
-yarn setup
+yarn build
 ```
 
-Runs the setup step for all modules. Typically this step just compiles TypeScript, but may involve other tasks.
+### Run
 
-### Ethereum Web3 Provider
+```bash
+yarn start
+```
+
+## Ethereum Web3 Provider
 Your Web3 provider info are to be configured using a dotenv ```.env``` configuration, a sample file ```.env.example``` is provided: to be copied, renamed and populated according to your setup.
 
 

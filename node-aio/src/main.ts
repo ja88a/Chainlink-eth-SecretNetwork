@@ -9,13 +9,14 @@ async function bootstrap() {
     //logger: ['error', 'warn'],
     //logger: false,
   });
+  
   app.connectMicroservice(configKafka);
 
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
       whitelist: true,
-    }),
+    })
   );
   
   await app.startAllMicroservicesAsync();

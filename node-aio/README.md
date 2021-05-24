@@ -3,12 +3,13 @@
 
 ## General
 
+A NestJS app server integrating all 3 modules composing that solution to grab Chainlink oracle contracts' data
+and have their value (price feed) reported to related SecretNetwork contracts.
+
 
 ## Requirements
 
-- Yarn: to install and run. NPM is an alternative (but was not used directly by default here)
-- Secret Network Web3 Provider: either an online Web3 Provider or a local Secret node
-
+- Yarn: to install packages and run a local app server. NPM is an alternative (but was not used directly by default here)
 
 ## Install
 
@@ -18,20 +19,17 @@ yarn
 
 Installs packages for all workspaces.
 
+## Build
 
-## Setup
-
-### Basic
 ```bash
-yarn setup
+yarn build
 ```
 
-Runs the setup step for all modules. Typically this step just compiles TypeScript, but may involve other tasks.
+## Run
 
-### Secret Network Web3 Provider
-Your Web3 provider info are to be configured using a ```.env``` configuration, a sample file ```.env.example``` is provided: to be copied, renamed and populated according to your setup.
-
-You can consider deploying locally a full Secret Netwrok node, or using a service provider, e.g. [Figment.io DataHub](https://datahub.figment.io).
+```bash
+yarn start
+```
 
 ## Test
 

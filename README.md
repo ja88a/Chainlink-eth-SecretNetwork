@@ -1,11 +1,11 @@
 # Chainlink Oracles Data Bridge to Secret Network
 
 ## General
-This mono repo contains the source of services and contracts development projects for bridging [Chainlink oracle](https://data.chain.link) contracts' data towards [Secret Network](https://scrt.network) contracts. 
+This mono repo contains the source of services and contracts development projects for relaying [Chainlink oracle](https://data.chain.link) contracts' data towards [Secret Network](https://scrt.network) contracts. 
 
 The overall solution and thoughts are reported in this project [wiki](https://github.com/ja88a/Chainlink-eth-SecretNetwork/wiki).
 
-The project was developped, and still is, in the context of the Chainlink Spring 2021 Hackathon. Its proof-of-concept submission made on 2021-04-11 is available in devpost.com [here](https://devpost.com/software/chainlink-oracles-bridge-to-secret-network).
+The project was initiated and developped (and still is) in the context of the Chainlink Spring 2021 Hackathon. The initial proof-of-concept submission made on 2021-04-11 is available in devpost.com [here](https://devpost.com/software/chainlink-oracles-bridge-to-secret-network).
 
 Some of the key tools / tech this project benefits from:
 - [NestJS](https://nestjs.com) Best TypeScript app server development option
@@ -14,33 +14,35 @@ Some of the key tools / tech this project benefits from:
 - [CosmWasm](https://github.com/CosmWasm/cosmwasm) excellent Cosmos toolkits and reference documentation
 - [RustUp](https://rustup.rs) full featured Rust toolchain manager, with Cargo & rustc
 - [Chainlink](https://chain.link) tools, vision and their off-chain / on-chain integration design
+- [Kafka](https://kafka.apache.org/) as the distributed event streaming platform among the main services
 
 ## Status
 Work is still in progress to finalize the full end-to-end integration.
 
-It is planned to have a fully running v0.1 by April 2021.
-
 ## Tech Requirements
 
-- Yarn
-- Docker for running the services, and fully optimizing the Secret contracts
+- Yarn to build & run the modules
+- Lerna in order to develop against local versions of packages
+- Kafka for the services to interact
+- Docker for running the services locally containerized, and fully optimizing the Secret contracts
 - Cargo and corresponding Rust toolkit for the Secret oracle contract development
 - GNU Make to benefit from build scripts
  
 Each module should define its own dependencies and provide minimum guidance. Still there are many different frameworks and technics used in order the full end-to-end solution.
 
-## Install
+## Play
+### Setup
 
 ```bash
-yarn
+lerna bootstrap
 ```
 
 Installs packages for all workspaces. Except for the Secret oracle contracts' dev projects. 
 
-## Setup
+## Build
 
 ```bash
-yarn setup
+lerna run build
 ```
 
 Runs the setup step for all modules. Typically this step just compiles TypeScript, but may involve other tasks.
@@ -50,8 +52,7 @@ Runs the setup step for all modules. Typically this step just compiles TypeScrip
 In order to test modules locally, you may need to set environment variables for the given API.
 
 ```bash
-cd $module
-yarn test
+lerna run test
 ```
 
 ## Docker

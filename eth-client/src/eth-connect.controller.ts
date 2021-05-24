@@ -25,9 +25,9 @@ export class EthConnectController {
   }
 
   // http://localhost:3000/eth/start
-  @Get('/eth/start')
+  @Get('/eth/polling')
   @Cron('1 * * * * *')
-  start(): string {
+  pollContractOraclePrice(): string {
     const timeFetchStart = Date.now();
     this.ethConnectService
       .loadAllContractData()

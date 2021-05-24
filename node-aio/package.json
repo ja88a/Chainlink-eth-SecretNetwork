@@ -31,7 +31,8 @@
     "rxjs": "^6.6.7",
     "@relayd/scrt-client": "~0.1.0",
     "@relayd/eth-client": "~0.1.0",
-    "@relayd/feed-handler": "~0.1.0"
+    "@relayd/feed-handler": "~0.1.0",
+    "@relayd/common": "~0.1.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^7.6.0",

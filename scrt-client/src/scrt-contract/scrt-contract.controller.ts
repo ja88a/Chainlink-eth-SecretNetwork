@@ -4,7 +4,7 @@ import { HttpErrorByCode } from '@nestjs/common/utils/http-error-by-code.util';
 
 @Controller()
 export class ScrtContractController {
-  private readonly logger = new Logger(ScrtContractService.name);
+  private readonly logger = new Logger(ScrtContractController.name);
 
   constructor(private readonly scrtConnectService: ScrtContractService) {
     this.init();

@@ -5,7 +5,7 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "declarationDir": "./dist/types",
-    "typeRoots" : ["./typings"],
+    //"typeRoots" : ["./typings"],
   },
   "include": [
     "src/**/*"

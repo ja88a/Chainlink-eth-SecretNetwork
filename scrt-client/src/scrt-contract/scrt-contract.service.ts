@@ -2,8 +2,8 @@ import { Logger, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 //import { ClientRequest } from 'http';
 import { CosmWasmClient } from 'secretjs/types/cosmwasmclient';
-import { QueryAnswer } from './types/cw-scrt-oracle-price/QueryAnswer';
-import { QueryMsg } from './types/cw-scrt-oracle-price/QueryMsg';
+import { QueryAnswer } from './cw-scrt-oracle-price/QueryAnswer';
+import { QueryMsg } from './cw-scrt-oracle-price/QueryMsg';
 
 
 export const MSG = {

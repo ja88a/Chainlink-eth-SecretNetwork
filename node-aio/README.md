@@ -1,14 +1,7 @@
-# SecretNetwork Contracts Updater with Chainlink Oracles data
+# Chainlink Oracles data Relayer to SecretNetwork
+# All-in-One Node (integration project)
 
 ## General
-
-Update target oracle contracts data that are deployed in [Secret Network](https://scrt.network).
-
-It mostly consists in wrapping the enigmampc/[Secret JS client SDK](https://github.com/enigmampc/SecretNetwork/tree/master/cosmwasm-js/packages/sdk), embedded in [NestJS](https://nestjs.com) modules. Then adding custom handlings and exposing a REST API for remote control.
-
-2 main parts:
-- connecting to the Secret network
-- deploying, reading and updating relayd oracle contracts
 
 
 ## Requirements

@@ -4,8 +4,8 @@
   "description": "Chainlink Oracle Data Relaying Handler",
   "author": "Jabba Theone",
   "license": "MIT",
-  "main": "dist/main.js",
-  "types": "dist/types/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/types",
 
   "scripts": {
     "docs": "shx rm -rf docs && typedoc --options ../typedoc.js",

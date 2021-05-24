@@ -9,7 +9,8 @@
     "common",
     "eth-client",
     "scrt-client",
-    "feed-handler"
+    "feed-handler",
+    "node-aio"
   ],
   "main": "dist/index.js",
   "types": "types/index.d.ts",

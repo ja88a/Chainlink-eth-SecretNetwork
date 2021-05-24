@@ -1,11 +1,10 @@
 {
-  "name": "@relayd/scrt-client",
+  "name": "@relayd/node-aio",
   "private": true,
   "version": "0.1.0",
-  "description": "A NestJS SecretNetwork client service based on the Enigma/SecretJS SDK",
+  "description": "A NestJS-based Relayer of Ethereum Chainlink Oracle contracts data towards the SecretNetwork",
   "license": "MIT",
-  "main": "dist/index.js",
-  "types": "dist/types/index.d.ts",
+  "main": "dist/main.js",
 
   "scripts": {
     "prebuild": "rimraf dist",
@@ -23,16 +22,16 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@iov/crypto": "^2.5.0",
     "@nestjs/common": "^7.6.15",
     "@nestjs/config": "^0.6.3",
     "@nestjs/core": "^7.6.15",
     "@nestjs/platform-express": "^7.6.15",
-    "@nestjs/schedule": "^0.4.3",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^6.6.7",
-    "secretjs": "^0.11.0"
+    "@relayd/scrt-client": "~0.1.0",
+    "@relayd/eth-client": "~0.1.0",
+    "@relayd/feed-handler": "~0.1.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^7.6.0",

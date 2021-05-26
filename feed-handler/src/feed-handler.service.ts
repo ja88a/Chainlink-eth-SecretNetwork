@@ -1,9 +1,11 @@
 import { Get, Injectable, Logger } from '@nestjs/common';
 import { Client, ClientKafka, MessagePattern, Payload, Ctx, KafkaContext, EventPattern } from '@nestjs/microservices';
 import { KafkaMessage, Message, ProducerRecord } from 'kafkajs';
-import { Observable } from 'rxjs';
+import { Observable } from 'rxjs/internal/Observable';
 
-import { configKafka } from '@relayd/common';
+import { KafkaStreams, KStorage, KStream, KTable } from 'kafka-streams';
+
+import { configKafka, configKafkaNative, ETopics } from '@relayd/common';
 import { FeedConfig, DataFeedEnableResult, TMessageType0 } from '@relayd/common';
 
 @Injectable()
@@ -14,17 +16,26 @@ export class FeedHandlerService {
   @Client(configKafka)
   private client: ClientKafka;
 
+  private kafkaStreamMaker: KafkaStreams;
+
+  constructor() { }
+
   async init() {
     const requestPatterns = [
-      'entity-created',
       'test.send.msg',
+      ETopics.FEED,
+      ETopics.CONTRACT
     ];
 
     requestPatterns.forEach(pattern => {
       this.client.subscribeToResponseOf(pattern);
     });
 
+    this.kafkaStreamMaker = new KafkaStreams(configKafkaNative);
+
     //await this.client.connect();
+    this.logtKafkaNativeInfo();
+    this.initKStream();
   }
 
   // =======================================================================
@@ -51,8 +62,6 @@ export class FeedHandlerService {
     }
   }
 
-
-  // working
   //@Get('/test2')
   sendTestMsg2(): string {
     const newMsg0 = { id: '002', name: 'test002' };
@@ -77,9 +86,40 @@ export class FeedHandlerService {
   // -- Core
   // -----------------------------------------------------------------------
 
-  async enableDataFeed(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {
-    throw new Error('Method not implemented.');
+  // async changeFeedStatus(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {
+  // }
+
+  logtKafkaNativeInfo(): void {
+    const Kafka = require('node-rdkafka');
+    this.logger.debug('Kafka features: ' + Kafka.features);
+    this.logger.debug('librdkafka version: ' + Kafka.librdkafkaVersion);
+  } 
+
+  initKStream(): void {
+    //const feedStorage: KStorage = this.kafkaStreamMaker.getStorage();
+    const feedStream: KStream = this.kafkaStreamMaker.getKStream(ETopics.FEED);
+    //feedStream.
+    //const feedTable: KTable = this.kafkaStreamMaker.getKTable();
   }
+
+  async createFeed(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {
+    // 1. Check if existing feed
+    // 2. If Existing, enable/resume
+    // 3. If non-existing feed: 
+    //  3.1 Check consistency and create/declare/cast for contracts creation
+    // const producer = await this.client.connect();
+    // producer.emit()
+    this.client.emit(
+      ETopics.FEED,
+      priceFeedConfig
+    );
+    this.client.emit(
+      ETopics.CONTRACT,
+      priceFeedConfig.source
+    );
+    let feedStream: DataFeedEnableResult;
+    return feedStream;
+  } 
 
 
 }

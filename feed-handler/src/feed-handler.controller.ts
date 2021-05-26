@@ -2,10 +2,10 @@ import { Body, Controller, Get, HttpStatus, Logger, OnModuleInit, Post, UseFilte
 import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
 
 import { DataFeedEnableResult, FeedConfig, TMessageType0, VALID_OPT } from '@relayd/common';
+import { CustExceptionFilter, HttpExceptionService } from '@relayd/common';
 
 import { validateOrReject } from 'class-validator';
 import { FeedHandlerService } from './feed-handler.service';
-import { CustExceptionFilter, HttpExceptionService } from './http.error';
 
 @Controller()
 export class FeedHandlerController implements OnModuleInit {
@@ -33,11 +33,10 @@ export class FeedHandlerController implements OnModuleInit {
   /**
    * Add or Enable a price feed by specifying its config. ID must be unique to create a new feed and corresponding oracle data contract.
    * 
-   * $ curl -d '{"id":"scrtusd", "name":"SCRT/USD price feed", "updateMode":"listen"}' -H "Content-Type: application/json" -X POST http://localhost:3000/relay/feed/price
-   * 
    * @param feedConfig 
    * @returns 
    */
+  // $ curl -d '{"id":"scrtusd", "name":"SCRT/USD price feed", "updateMode":"listen"}' -H "Content-Type: application/json" -X POST http://localhost:3000/relay/feed/price
   @Post('/relay/feed/price')
   @UseFilters(new CustExceptionFilter())
   async addFeedPricePair(@Body() feedConfig: FeedConfig): Promise<DataFeedEnableResult>  {
@@ -48,7 +47,7 @@ export class FeedHandlerController implements OnModuleInit {
     });
     
     const result = await valid.then(() => {
-      const resultAction = this.feedHandlerService.enableDataFeed(feedConfig)
+      const resultAction = this.feedHandlerService.createFeed(feedConfig)
       .then((actionRes: DataFeedEnableResult) => {
         this.logger.log('Data feed enabled: ' + JSON.stringify(actionRes));
         return actionRes;
@@ -60,8 +59,6 @@ export class FeedHandlerController implements OnModuleInit {
     });
     return result;
   }
-
-
 
 }
 

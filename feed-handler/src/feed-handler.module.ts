@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { FeedHandlerController } from './feed-handler.controller';
 import { FeedHandlerService } from './feed-handler.service';
-import { HttpExceptionService } from './http.error';
+import { HttpExceptionService } from '@relayd/common';
 
 @Module({
   imports: [ConfigModule.forRoot()],

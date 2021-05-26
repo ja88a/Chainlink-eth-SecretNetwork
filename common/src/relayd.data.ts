@@ -77,7 +77,7 @@ export enum EFeedSourceEvent {
 
 export enum EFeedSourcePoll {
   EVENT = 'event',
-  PERIOD = 'period',
+  TIMEPERIOD = 'period',
   default = EVENT
 };
 
@@ -117,12 +117,12 @@ export class FeedConfigSource {
   /** Source status, in terms of access to its functions and data */
   @IsOptional()
   @IsEnum(HttpStatus)
-  status?: HttpStatus;
+  status?: HttpStatus = HttpStatus.PARTIAL_CONTENT;
 
   /** Hosting network of the data Source (contract) */
   @IsOptional()
   @IsEnum(EFeedSourceNetwork)
-  network?: EFeedSourceNetwork;
+  network?: EFeedSourceNetwork = EFeedSourceNetwork.default;
 
   /** Address of the source contract */
   @IsDefined()
@@ -133,7 +133,7 @@ export class FeedConfigSource {
   /** Type of the source contract */
   @IsOptional()
   @IsEnum(EFeedSourceType)
-  type?: EFeedSourceType;
+  type?: EFeedSourceType = EFeedSourceType.default;
 
   /** Polling mode to check for data changes: via listening to events or regularly querying the source contract */
   @IsOptional()
@@ -156,14 +156,14 @@ export class FeedConfigSource {
 
   /** Poll time period (seconds), if source is monitored via regular polling */
   @IsOptional()
-  @ValidateIf(o => o.poll === EFeedSourcePoll.PERIOD)
+  @ValidateIf(o => o.poll === EFeedSourcePoll.TIMEPERIOD)
   @Min(20)
   @Max(48 * 60 * 60)
   period?: Number = 120;
 
   /** Optional specification of the source contract method to use when querying */
   @IsOptional()
-  @ValidateIf(o => o.poll === EFeedSourcePoll.PERIOD)
+  @ValidateIf(o => o.poll === EFeedSourcePoll.TIMEPERIOD)
   @IsEnum(EFeedSourceFunction)
   function?: EFeedSourceFunction;
 

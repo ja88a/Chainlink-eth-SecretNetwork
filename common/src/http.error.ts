@@ -2,45 +2,28 @@ import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Injec
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 
-import { EErrorExt } from '@relayd/common';
+import { EErrorExt } from './relayd.config';
 
-@Catch(HttpException)
-export class HttpExceptionFilter implements ExceptionFilter {
-  catch(exception: HttpException, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
-    const status = exception.getStatus();
+// @Catch(HttpException)
+// export class HttpExceptionFilter implements ExceptionFilter {
+//   catch(exception: HttpException, host: ArgumentsHost) {
+//     const ctx = host.switchToHttp();
+//     const response = ctx.getResponse<Response>();
+//     const request = ctx.getRequest<Request>();
+//     const status = exception.getStatus();
 
-    response
-      .status(status)
-      .json({
-        statusCode: status,
-        timestamp: new Date().toISOString(),
-        path: request.url,
-      });
-  }
-}
-
-// class ErrorModel {
-//   name: string;
-//   message: string;
-//   code: number;
-//   fields: string[];
-//   reason: string;
-//   stack: any;
-// };
+//     response
+//       .status(status)
+//       .json({
+//         statusCode: status,
+//         timestamp: new Date().toISOString(),
+//         path: request.url,
+//       });
+//   }
+// }
 
 @Catch(Error)
 export class CustExceptionFilter implements ExceptionFilter {
-
-  // private static singleton: CustomExceptionFilter = null;
-  // static forAll(): ExceptionFilter<any> {
-  //   if (this.singleton == null) {
-  //     this.singleton = new CustomExceptionFilter();
-  //   }
-  //   return this.singleton;
-  // }
 
   private readonly logger = new Logger(CustExceptionFilter.name);
 

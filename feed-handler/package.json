@@ -6,13 +6,12 @@
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/types",
-
   "scripts": {
     "docs": "shx rm -rf docs && typedoc --options ../typedoc.js",
     "move-types": "shx rm -rf ./types && shx cp -r dist/types ./types && shx rm -f ./types/*.spec.d.ts && shx rm -f ./types/*.d.ts.map",
     "format-types": "prettier --write --loglevel warn \"./types/**/*.d.ts\"",
     "build:raw": "shx rm -rf ./dist && tsc && yarn move-types && yarn format-types",
-
+    "rebuild:node-rdkafka": "npm install node-rdkafka",
     "prebuild": "rimraf dist",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -34,10 +33,12 @@
     "@nestjs/core": "^7.6.15",
     "@nestjs/microservices": "^7.6.15",
     "@nestjs/platform-express": "^7.6.15",
-    "@relayd/common": "^0.1.0",
+    "@relayd/common": "~0.1.0",
     "class-transformer": "^0.4.0",
     "class-validator": "^0.13.1",
+    "kafka-streams": "^5.0.0",
     "kafkajs": "^1.15.0",
+    "node-rdkafka": "^2.10.1",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^6.6.7"

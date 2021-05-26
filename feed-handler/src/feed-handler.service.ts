@@ -7,6 +7,8 @@ import { KafkaStreams, KStorage, KStream, KTable } from 'kafka-streams';
 
 import { configKafka, configKafkaNative, ETopics } from '@relayd/common';
 import { FeedConfig, DataFeedEnableResult, TMessageType0 } from '@relayd/common';
+import { errorMonitor } from 'events';
+import { RecordMetadata } from '@nestjs/microservices/external/kafka.interface';
 
 @Injectable()
 export class FeedHandlerService {
@@ -16,7 +18,7 @@ export class FeedHandlerService {
   @Client(configKafka)
   private client: ClientKafka;
 
-  private kafkaStreamMaker: KafkaStreams;
+  private kafkaFactory: KafkaStreams;
 
   constructor() { }
 
@@ -31,12 +33,85 @@ export class FeedHandlerService {
       this.client.subscribeToResponseOf(pattern);
     });
 
-    this.kafkaStreamMaker = new KafkaStreams(configKafkaNative);
+    this.kafkaFactory = new KafkaStreams(configKafkaNative);
 
     //await this.client.connect();
-    this.logtKafkaNativeInfo();
-    this.initKStream();
+    this.logKafkaNativeInfo();
+    this.getFeedKStream();
   }
+
+  // =======================================================================
+  // -- Core
+  // -----------------------------------------------------------------------
+
+  // async changeFeedStatus(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {
+  // }
+
+  logKafkaNativeInfo(): void {
+    try {
+      const Kafka = require('node-rdkafka');
+      this.logger.debug('Kafka features: ' + Kafka.features);
+      this.logger.debug('librdkafka version: ' + Kafka.librdkafkaVersion);
+
+    }
+    catch (error) {
+      this.logger.warn('Failed loading node-rdkafka / librdkafka (native). Using kafkajs instead\n' + error);
+    }
+  }
+
+  getFeedKStream(): KStream {
+    //const feedStorage: KStorage = this.kafkaStreamMaker.getStorage();
+    const feedStream: KStream = this.kafkaFactory.getKStream(ETopics.FEED);
+    //feedStream.
+    //const feedTable: KTable = this.kafkaStreamMaker.getKTable();
+    return feedStream;
+  }
+
+  sendRecordFeed(feedConfig: FeedConfig): void {
+    this.client.connect()
+      .then((producer) => {
+        const result = producer.send({
+          topic: ETopics.FEED,
+          messages: [{
+            key: feedConfig.id,
+            value: JSON.stringify(feedConfig), // Check the need to stringify
+          }]
+        });
+        result
+          .then((recordMetadata: RecordMetadata[]) => {
+            recordMetadata.forEach(element => {
+              this.logger.debug('Sent feed record metadata: ' + element);
+            });
+          })
+          .catch((error) => { throw new Error('Failed sending feed config: ' + error.message) });
+      })
+      .catch((error: Error) => {
+        throw new Error('Failed to connect kafka client ' + error.message)
+      });
+  }
+
+  async createFeed(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {
+    // 1. Check if existing feed
+    // 2. If Existing, enable/resume
+    // 3. If non-existing feed: 
+    //  3.1 Check consistency and create/declare/cast for contracts creation
+    // const producer = await this.client.connect();
+    // producer.emit()
+    // this.client.emit(
+    //   ETopics.FEED,
+    //   priceFeedConfig
+    // );
+    this.sendRecordFeed(priceFeedConfig);
+
+    this.client.emit(
+      ETopics.CONTRACT,
+      priceFeedConfig.source
+    );
+    
+    let feedStream: DataFeedEnableResult;
+    return feedStream;
+  }
+
 
   // =======================================================================
   // -- TESTS
@@ -72,54 +147,14 @@ export class FeedHandlerService {
     this.logger.log(`Sending msg: ${JSON.stringify(newMsg0)}`);
     const record: ProducerRecord = {
       topic: 'test.send.msg',
-      messages:[msg0] 
+      messages: [msg0]
     };
-    this.client.connect().then((producer)=>{
+    this.client.connect().then((producer) => {
       producer.send(record);
     });
 
     //this.client.send('', {'001', 'test001'});
     return JSON.stringify(newMsg0);
   }
-
-  // =======================================================================
-  // -- Core
-  // -----------------------------------------------------------------------
-
-  // async changeFeedStatus(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {
-  // }
-
-  logtKafkaNativeInfo(): void {
-    const Kafka = require('node-rdkafka');
-    this.logger.debug('Kafka features: ' + Kafka.features);
-    this.logger.debug('librdkafka version: ' + Kafka.librdkafkaVersion);
-  } 
-
-  initKStream(): void {
-    //const feedStorage: KStorage = this.kafkaStreamMaker.getStorage();
-    const feedStream: KStream = this.kafkaStreamMaker.getKStream(ETopics.FEED);
-    //feedStream.
-    //const feedTable: KTable = this.kafkaStreamMaker.getKTable();
-  }
-
-  async createFeed(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {
-    // 1. Check if existing feed
-    // 2. If Existing, enable/resume
-    // 3. If non-existing feed: 
-    //  3.1 Check consistency and create/declare/cast for contracts creation
-    // const producer = await this.client.connect();
-    // producer.emit()
-    this.client.emit(
-      ETopics.FEED,
-      priceFeedConfig
-    );
-    this.client.emit(
-      ETopics.CONTRACT,
-      priceFeedConfig.source
-    );
-    let feedStream: DataFeedEnableResult;
-    return feedStream;
-  } 
-
 
 }

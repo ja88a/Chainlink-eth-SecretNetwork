@@ -5,10 +5,12 @@
     "main": "script/convert-schema-to-definition.js",
     "scripts": {
       "schema::convert": "npm run schema::clean && node script/convert-schema-to-definition.js",
-      "schema::clean": "rm -f dist/contract.d.ts"
+      "schema::clean": "rm -f dist/contract.d.ts",
+      "clean": "shx rm -rf ./dist ./target",
+      "reset": "yarn clean && shx rm -rf ./node_modules ./yarn.lock ./package-lock.json"  
     },
     "dependencies": {
-      "@types/node": "~14.14.37",
+      "@types/node": "^14.14.36",
       "compile-schemas-to-typescript": "^0.2.0"
     }
 }

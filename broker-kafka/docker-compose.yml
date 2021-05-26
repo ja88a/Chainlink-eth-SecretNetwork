@@ -58,3 +58,22 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
   
+  # kafdrop:
+  #   image: obsidiandynamics/kafdrop:latest
+  #   container_name: kafdrop
+  #   hostname: kafdrop
+  #   environment:
+  #     - KAFKA_BROKERCONNECT=kafka:29092,kafka:29092
+  #   ports:
+  #     - 9000:9000
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+#    restart: always
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=CLRelayGroup-server
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181

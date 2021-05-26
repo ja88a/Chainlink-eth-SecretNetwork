@@ -30,14 +30,16 @@
   },
   "scripts": {
     "build": "lerna run build",
+    "clean": "shx rm -rf ./dist ./*.tsbuildinfo",
+    "reset": "yarn clean && shx rm -rf ./node_modules ./yarn.lock ./package-lock.json",
     "docs": "lerna run docs",
     "format": "lerna run format",
     "format-text": "prettier --write --prose-wrap always --print-width 80 \"./*.md\" \"./docs/**/*.md\" \"./scripts/**/*.{json,md}\" && lerna run format-text",
     "lint": "lerna run lint",
     "lint:fix": "lerna run lint-fix",
     "setup": "yarn wsrun -mre -t setup && yarn wsrun -mre -t setup",
-    "test:unit": "yarn workspaces run test:unit",
-    "test:integration": "yarn workspaces run test:integration",
+    "test:unit": "lerna run test:unit",
+    "test:integration": "lerna run test:integration",
     "test:example": "yarn workspace @relayd/eth-client test",
     "test:example-start-server": "node ./helpers/server.js",
     "test": "lerna run test"

@@ -9,6 +9,8 @@
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "nest build",
+    "clean": "shx rm -rf ./dist ./*.tsbuildinfo",
+    "reset": "yarn clean && shx rm -rf ./node_modules ./yarn.lock ./package-lock.json",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",

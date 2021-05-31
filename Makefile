@@ -1,7 +1,9 @@
 check?=schedule
 
-install:
-	BUILD_LIBRDKAFKA=0 lerna bootstrap && lerna link
+bootstrap:
+	BUILD_LIBRDKAFKA=0 lerna bootstrap 
+	lerna link
+	lerna run build
 
 docker:
 	docker build --build-arg module=$(module) --build-arg name=$(name) -f Dockerfile . -t $(repo)$(if $(name),$(name),$(module))-module $(if $(tag), -t $(repo)$(tag), )
@@ -14,6 +16,7 @@ clean:
 	
 reset:
 	lerna run reset
+	yarn reset
 
 deps: clean
 	# Restore all dependencies
@@ -23,4 +26,3 @@ deps: clean
 
 build:
 	lerna run build
-

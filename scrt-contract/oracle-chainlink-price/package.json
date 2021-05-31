@@ -10,7 +10,7 @@
       "reset": "yarn clean && shx rm -rf ./node_modules ./yarn.lock ./package-lock.json"  
     },
     "dependencies": {
-      "@types/node": "^14.14.36",
+      "@types/node": "^12.12.6",
       "compile-schemas-to-typescript": "^0.2.0"
     }
 }

@@ -9,3 +9,4 @@ Cargo.lock
 tsconfig.build.tsbuildinfo
 *.7z
 private
+yarn.lock

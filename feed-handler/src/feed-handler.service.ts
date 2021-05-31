@@ -1,14 +1,15 @@
 import { Get, Injectable, Logger } from '@nestjs/common';
 import { Client, ClientKafka, MessagePattern, Payload, Ctx, KafkaContext, EventPattern } from '@nestjs/microservices';
-import { KafkaMessage, Message, ProducerRecord } from 'kafkajs';
+import { Admin, ITopicConfig, Kafka, KafkaConfig, KafkaMessage, Message, ProducerRecord } from 'kafkajs';
 import { Observable } from 'rxjs/internal/Observable';
 
-import { KafkaStreams, KStorage, KStream, KTable } from 'kafka-streams';
+import { KafkaStreams, KStorage, KStream, KTable, KafkaStreamsConfig, NativeKafkaClient } from 'kafka-streams';
 
-import { configKafka, configKafkaNative, ETopics } from '@relayd/common';
+import { configKafka, configKafkaNative, configKafkaClient, ETopics, configKafkaTopics } from '@relayd/common';
 import { FeedConfig, DataFeedEnableResult, TMessageType0 } from '@relayd/common';
 import { errorMonitor } from 'events';
 import { RecordMetadata } from '@nestjs/microservices/external/kafka.interface';
+import { KafkaClient } from 'kafka-streams';
 
 @Injectable()
 export class FeedHandlerService {
@@ -16,8 +17,9 @@ export class FeedHandlerService {
   private readonly logger = new Logger(FeedHandlerService.name, true);
 
   @Client(configKafka)
-  private client: ClientKafka;
+  private clientKafka: ClientKafka;
 
+  private kafkaClient: Kafka;
   private kafkaFactory: KafkaStreams;
 
   constructor() { }
@@ -30,14 +32,24 @@ export class FeedHandlerService {
     ];
 
     requestPatterns.forEach(pattern => {
-      this.client.subscribeToResponseOf(pattern);
+      this.clientKafka.subscribeToResponseOf(pattern);
     });
 
+    this.kafkaClient = new Kafka(configKafkaClient);
+
     this.kafkaFactory = new KafkaStreams(configKafkaNative);
+    //    this.kafkaFactory.on("error", (error: Error) => this.logger.error('Error on Kafka stream feactory\n'+error));
+    //    const feedKafkaClient: NativeKafkaClient = this.kafkaFactory.getKafkaClient(ETopics.FEED);
 
     //await this.client.connect();
     this.logKafkaNativeInfo();
+    await this.createTopicsDefault();
+
+
+    // ========= TMP Test=============
+    
     this.getFeedKStream();
+    this.getFeedKTable();
   }
 
   // =======================================================================
@@ -47,28 +59,101 @@ export class FeedHandlerService {
   // async changeFeedStatus(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {
   // }
 
+  /**
+   * Log info about the loaded (or not) native node-rdkafka librdkafka
+   */
   logKafkaNativeInfo(): void {
     try {
       const Kafka = require('node-rdkafka');
       this.logger.debug('Kafka features: ' + Kafka.features);
       this.logger.debug('librdkafka version: ' + Kafka.librdkafkaVersion);
-
     }
     catch (error) {
-      this.logger.warn('Failed loading node-rdkafka / librdkafka (native). Using kafkajs instead\n' + error);
+      this.logger.warn('Failed loading node-rdkafka (native). Using kafkajs\n' + error);
     }
   }
+
+  /**
+   * Create the required default topics, if necessary / not already existing
+   */
+  async createTopicsDefault(): Promise<void> {
+    try {
+      const kafkaAdmin: Admin = this.kafkaClient.admin();
+      const topicsExisting = await kafkaAdmin.listTopics();
+
+      const appTopics: ITopicConfig[] = [];
+      for (const topic in ETopics) {
+        const topicName = ETopics[topic];
+        const topicExists = topicsExisting.includes(topicName);
+        if (!topicExists) {
+          this.logger.debug('Create Topic \'' + topicName + '\' from ' + JSON.stringify(configKafkaTopics.get(topicName)));
+          appTopics.push({
+            topic: topicName,
+            numPartitions: configKafkaTopics.get(topicName).numPartitions | 1,
+            replicationFactor: configKafkaTopics.get(topicName).replicationFactor | 1,
+          })
+        }
+      }
+
+      if (appTopics.length > 0) {
+        await kafkaAdmin.createTopics({
+          topics: appTopics,
+          waitForLeaders: true,
+        }).then((success) => {
+          this.logger.log('Creation of ' + appTopics.length + ' default topics - Success: ' + success);
+        });
+      }
+    } catch (error) {
+      this.logger.error('Failed in creating default Topics\n' + error);
+    }
+  };
 
   getFeedKStream(): KStream {
     //const feedStorage: KStorage = this.kafkaStreamMaker.getStorage();
-    const feedStream: KStream = this.kafkaFactory.getKStream(ETopics.FEED);
-    //feedStream.
-    //const feedTable: KTable = this.kafkaStreamMaker.getKTable();
-    return feedStream;
+    const topicName = ETopics.FEED;
+    const topicStream: KStream = this.kafkaFactory.getKStream(topicName);
+
+    topicStream.forEach(message => {
+      this.logger.debug('New msg on \'' + topicName + '\': ' + message);
+    });
+
+    const outputStreamConfig: KafkaStreamsConfig = null;
+    topicStream.start(
+      () => { this.logger.debug('Stream on \'' + topicName + '\' ready. Started') },
+      (error) => { this.logger.error('Failure on Stream for \'' + topicName + '\'\n' + error) },
+      // false,
+      // outputStreamConfig
+    );
+
+    return topicStream;
+  }
+
+  getFeedKTable(): KTable {
+    const topicName = ETopics.FEED;
+
+    const toKv = message => {
+      const msg = message.split(",");
+      return {
+        key: msg[0],
+        value: msg[1]
+      };
+    };
+    const topicTable: KTable = this.kafkaFactory.getKTable(topicName, toKv, null);
+
+    topicTable.consumeUntilMs(1000, () => { this.logger.debug('Table snapshot of \'' + topicName + '\' taken') });
+
+    const outputStreamConfig: KafkaStreamsConfig = null;
+    topicTable.start(
+      () => { this.logger.debug('Table extract of \'' + topicName + '\' ready. Starting') },
+      (error) => { this.logger.error('Failure on Table for \'' + topicName + '\'\n' + error) },
+      // false,
+      // outputStreamConfig
+    );
+    return topicTable;
   }
 
   sendRecordFeed(feedConfig: FeedConfig): void {
-    this.client.connect()
+    this.clientKafka.connect()
       .then((producer) => {
         const result = producer.send({
           topic: ETopics.FEED,
@@ -103,11 +188,11 @@ export class FeedHandlerService {
     // );
     this.sendRecordFeed(priceFeedConfig);
 
-    this.client.emit(
+    this.clientKafka.emit(
       ETopics.CONTRACT,
       priceFeedConfig.source
     );
-    
+
     let feedStream: DataFeedEnableResult;
     return feedStream;
   }
@@ -120,7 +205,7 @@ export class FeedHandlerService {
   sendTestMsg(): TMessageType0 {
     const newMsg0: TMessageType0 = { id: '000', name: 'test000' };
     this.logger.warn(`Sending msg: ${JSON.stringify(newMsg0)}`);
-    const result: Observable<any> = this.client.emit('test.send.msg', newMsg0);
+    const result: Observable<any> = this.clientKafka.emit('test.send.msg', newMsg0);
     result.toPromise().then((result: any) => { this.logger.debug(`Observable type ${typeof result}: ${JSON.stringify(result)}`) })
     return newMsg0;
   }
@@ -149,7 +234,7 @@ export class FeedHandlerService {
       topic: 'test.send.msg',
       messages: [msg0]
     };
-    this.client.connect().then((producer) => {
+    this.clientKafka.connect().then((producer) => {
       producer.send(record);
     });
 

@@ -29,7 +29,7 @@ export class CustExceptionFilter implements ExceptionFilter {
 
   private readonly errorComMode: string;
 
-  constructor(@Inject() private readonly configService?: ConfigService) {
+  constructor(private readonly configService?: ConfigService) {
     if (configService === undefined) {
       this.logger.warn('No Config available');
       this.errorComMode = EErrorExt.default
@@ -47,20 +47,21 @@ export class CustExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+    let respStatus: number = -1;
+    let respBody: any = null;
+
     switch (this.errorComMode) {
       case EErrorExt.STANDARD:
-        const status = (exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR);
-        response
-          .status(status)
-          .json({
-            statusCode: status,
-            message: 'Cannot '+request.method+' '+request.path,
-            error: exception.name,
-          });
+        respStatus = (exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR);
+        respBody = {
+          statusCode: status,
+          message: 'Cannot '+request.method+' '+request.path,
+          error: exception.name,
+        };
         break;
       case EErrorExt.DEBUG:
-        const respCode = (exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR);
-        const respBody = (exception instanceof HttpException ? exception.getResponse() : exception);
+        respStatus = (exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR);
+        respBody = (exception instanceof HttpException ? exception.getResponse() : exception);
         respBody.time = new Date().toISOString();
         respBody.request = {
           path: request.url,
@@ -73,22 +74,23 @@ export class CustExceptionFilter implements ExceptionFilter {
           ip: request.ip,
           ips: request.ips,
         }; 
-        response
-          .status(respCode)
-          .json(respBody);
         break;
       default:
-        response
-          .status(HttpStatus.NOT_FOUND)
-          .json({
-            statusCode: HttpStatus.NOT_FOUND,
-            message: 'Cannot '+request.method+' '+request.path,
-            error: 'Not Found'
-          }); 
+        respStatus = HttpStatus.NOT_FOUND; 
+        respBody = {
+          statusCode: HttpStatus.NOT_FOUND,
+          message: 'Cannot '+request.method+' '+request.path,
+          error: 'Not Found'
+        };
         break;
     }
-    this.logger.error('Return Exception: ' + JSON.stringify(response.json), exception);
+    response.status(respStatus);
+    response.json(respBody);
     //response.send();
+
+    this.logger.warn('Returned error \''+respStatus+'\'\n' + JSON.stringify(respBody));
+    this.logger.error('\n'+exception.stack);
+    //throw Error(exception);
   }
 }
 

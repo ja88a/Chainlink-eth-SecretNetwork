@@ -1,3 +1,5 @@
+import { from } from 'rxjs';
+
 // declare module '@relayd/commons';
 export { 
   configKafka, 

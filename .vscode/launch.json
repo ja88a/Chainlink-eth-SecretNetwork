@@ -4,13 +4,13 @@
       {
         "type": "node",
         "request": "attach",
-        "name": "Launch Program",
+        "name": "Attach running nodejs",
         "skipFiles": [
           "<node_internals>/**"
         ],
         //"localRoot": "${workspaceRoot}/bridge-broker/",
         "sourceMapPathOverrides": {
-          "webpack:///./*": "${workspaceRoot}/bridge-broker/*",
+          "webpack:///./*": "${workspaceRoot}/feed-handler/*",
         },
         "port": 9229
       }

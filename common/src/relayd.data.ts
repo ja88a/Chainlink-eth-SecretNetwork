@@ -1,4 +1,6 @@
 import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
+import { Type } from 'class-transformer';
+//import { Type } from 'class-transformer/types/decorators';
 import {
   Length,
   IsEnum,
@@ -44,8 +46,9 @@ export enum EFeedDataType {
 export class FeedConfigData {
   /** 
    * Feed's data type 
-   * @example price
+   * @example 'price'
    */
+  @IsDefined()
   @IsEnum(EFeedDataType)
   type: EFeedDataType;
 
@@ -113,7 +116,7 @@ export enum EFeedSourceEvent {
 
 /** Supported modes to watch for source contract updates */
 export enum EFeedSourcePoll {
-  /** Monitor / Listen to update events */
+  /** Monitor / Listen to emitted update events */
   EVENT = 'event',
   /** Time-based regular polling to check for data changes */
   TIMEPERIOD = 'period',
@@ -229,6 +232,7 @@ export class FeedConfigSource {
 //  @IsOptional()
   @ValidateIf(o => o.status == HttpStatus.OK)
   @ValidateNested()
+  @Type(() => FeedConfigSourceData)
   data?: FeedConfigSourceData;
 };
 
@@ -286,6 +290,19 @@ export class FeedConfigTarget {
   @Contains('secret')
   contract?: string;
 
+  /** Identification of the target contract owner
+   * 
+   * It actually also defines the data feed owner, considering the 2 bound to each other 
+   * @example 'secret1p4ltddczms6hm3e7z3r8cufuwjqq3nq40GROUP' 
+   */
+  // TODO If feed owner undefined, use feed creator's default oracle group
+  // TODO Support for a Group to be feed & contract owner, its members are granted handlers
+  @IsOptional()
+  @ValidateIf(o => o.status === HttpStatus.OK)
+  @Length(44, 46)
+  @Contains('secret')
+  owner?: string;
+
   /** Network hosting the feed's target contract */
   @IsOptional()
   @IsEnum(EFeedTargetNetwork) 
@@ -305,6 +322,7 @@ export class FeedConfigTarget {
 //  @IsOptional()
   @ValidateIf(o => o.status === HttpStatus.OK)
   @ValidateNested()
+  @Type(() => FeedConfigTargetData)
   data?: FeedConfigTargetData;
 };
 
@@ -316,7 +334,7 @@ export class FeedConfig {
    * @example 'cl-price-btcusd' 
    */
   @IsDefined()
-  @Length(3, 12)
+  @Length(4, 40)
   id: string;
 
   /** Feed config version number, optional */
@@ -327,47 +345,37 @@ export class FeedConfig {
    * @example 'Chainlink price for BTC/USD' 
    */
   @IsDefined()
-  @Length(8, 40)
+  @Length(8, 80)
   name: string;
 
-  // @IsOptional()
-  // @IsEnum(EDataFeedUpdMode)
-  // updateMode?: EDataFeedUpdMode;
-
   /** Free text description of the Data Feed
-   * @example 'Chainlink reference aggregated price for Bitcoin against USD' 
-   */
+   * @example 'Chainlink reference aggregated price for Bitcoin against USD' */
   @IsOptional()
-  @MaxLength(255)
+  @MaxLength(256)
   description?: string;
 
   /** Identification of the data feed initiator / creator */
   @IsDefined()
-  @Length(46, 46)
+  @Length(44, 46)
   @Contains('secret')
   creator: string;
-
-  /** Identification of the data feed owner */
-  // TODO If feed owner undefined, use creator's oracle group by default
-  // TODO Support for Group as feed owner
-  @IsOptional()
-  @Length(46, 46)
-  @Contains('secret')
-  owner?: string;
 
   /** Data feed data configuration */
   @IsDefined()
   @ValidateNested()
+  @Type(() => FeedConfigData)
   data: FeedConfigData;
 
   /** Configuration of the data feed Source */
   @IsDefined()
   @ValidateNested()
+  @Type(() => FeedConfigSource)
   source: FeedConfigSource;
 
   /** Configuration of the data feed Target */
   @IsOptional()
   @ValidateNested()
+  @Type(() => FeedConfigTarget)
   target?: FeedConfigTarget;
 };
 

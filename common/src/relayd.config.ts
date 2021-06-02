@@ -89,7 +89,7 @@ export const VALID_OPT: ValidatorOptions = {
     target: true,
     value: true,
   },
-  forbidUnknownValues: true,
+  forbidUnknownValues: true, // PROD: true
   stopAtFirstError: true
 };
 

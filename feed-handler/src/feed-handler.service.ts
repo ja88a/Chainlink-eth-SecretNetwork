@@ -1,15 +1,14 @@
-import { Get, Injectable, Logger } from '@nestjs/common';
-import { Client, ClientKafka, MessagePattern, Payload, Ctx, KafkaContext, EventPattern } from '@nestjs/microservices';
-import { Admin, ITopicConfig, Kafka, KafkaConfig, KafkaMessage, Message, ProducerRecord } from 'kafkajs';
+import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
+import { Injectable, Logger } from '@nestjs/common';
+import { Client, ClientKafka, KafkaContext } from '@nestjs/microservices';
+import { Admin, ITopicConfig, KafkaMessage, Message, ProducerRecord } from 'kafkajs';
 import { Observable } from 'rxjs/internal/Observable';
 
-import { KafkaStreams, KStorage, KStream, KTable, KafkaStreamsConfig, NativeKafkaClient } from 'kafka-streams';
+import { KafkaStreams, KStream, KTable, KafkaStreamsConfig } from 'kafka-streams';
 
-import { configKafka, configKafkaNative, configKafkaClient, ETopics, configKafkaTopics } from '@relayd/common';
+import { configKafka, configKafkaNative, ETopics, configKafkaTopics, KTableQueryResult } from '@relayd/common';
 import { FeedConfig, DataFeedEnableResult, TMessageType0 } from '@relayd/common';
-import { errorMonitor } from 'events';
 import { RecordMetadata } from '@nestjs/microservices/external/kafka.interface';
-import { KafkaClient } from 'kafka-streams';
 
 @Injectable()
 export class FeedHandlerService {
@@ -19,8 +18,7 @@ export class FeedHandlerService {
   @Client(configKafka)
   private clientKafka: ClientKafka;
 
-  private kafkaClient: Kafka;
-  private kafkaFactory: KafkaStreams;
+  private streamFactory: KafkaStreams;
 
   constructor() { }
 
@@ -35,29 +33,29 @@ export class FeedHandlerService {
       this.clientKafka.subscribeToResponseOf(pattern);
     });
 
-    this.kafkaClient = new Kafka(configKafkaClient);
-
-    this.kafkaFactory = new KafkaStreams(configKafkaNative);
-    //    this.kafkaFactory.on("error", (error: Error) => this.logger.error('Error on Kafka stream feactory\n'+error));
-    //    const feedKafkaClient: NativeKafkaClient = this.kafkaFactory.getKafkaClient(ETopics.FEED);
-
     //await this.client.connect();
     this.logKafkaNativeInfo();
     await this.createTopicsDefault();
 
-
-    // ========= TMP Test=============
-    
-    this.getFeedKStream();
-    this.getFeedKTable();
+    this.streamFactory = new KafkaStreams(configKafkaNative);
+    this.initStreams();
   }
+
+  async shudown() {
+    if (this.streamFactory)
+      await this.streamFactory.closeAll()
+        .then((results) => {this.logger.debug("Feed streams closed. "+results)})
+        .catch((error) => {throw new Error('Unexpected closure of Feed streams\nError: '+error)});
+    if (this.clientKafka)
+      await this.clientKafka.close()
+        .then(() => {this.logger.debug("Feed client closed. ")})
+        .catch((error) => {throw new Error('Unexpected closure of Feed client\nError: '+error)});
+  } 
 
   // =======================================================================
   // -- Core
   // -----------------------------------------------------------------------
 
-  // async changeFeedStatus(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {
-  // }
 
   /**
    * Log info about the loaded (or not) native node-rdkafka librdkafka
@@ -78,7 +76,8 @@ export class FeedHandlerService {
    */
   async createTopicsDefault(): Promise<void> {
     try {
-      const kafkaAdmin: Admin = this.kafkaClient.admin();
+      const kafkaAdmin: Admin = this.clientKafka.createClient().admin();
+      //const kafkaAdmin: Admin = this.kafkaClient.admin();
       const topicsExisting = await kafkaAdmin.listTopics();
 
       const appTopics: ITopicConfig[] = [];
@@ -101,81 +100,142 @@ export class FeedHandlerService {
           waitForLeaders: true,
         }).then((success) => {
           this.logger.log('Creation of ' + appTopics.length + ' default topics - Success: ' + success);
+        }).catch((error) => {
+          throw new Error('Failed to create topics ' + JSON.stringify(appTopics) + '\n' + error);
         });
       }
     } catch (error) {
-      this.logger.error('Failed in creating default Topics\n' + error);
+      this.logger.error('Failed to create missing default Topics\n' + error);
     }
   };
 
-  getFeedKStream(): KStream {
+  private feedStream: KStream;
+  private feedTable: KTable;
+
+  initStreams(): void {
+    Promise.all([
+      this.initFeedKStream(ETopics.FEED),
+      this.initFeedKTable()
+    ]).then(() => {
+      this.logger.log('Feed Stream & Table successfully started');
+    }).catch((error) => { 
+      throw new Error('Failed to init Streams:' + error); 
+    });
+  }
+
+  initFeedKStream(topicName: string): Promise<void> {
+    this.logger.debug('Creating kStream for \'' + topicName + '\'');
     //const feedStorage: KStorage = this.kafkaStreamMaker.getStorage();
-    const topicName = ETopics.FEED;
-    const topicStream: KStream = this.kafkaFactory.getKStream(topicName);
+    const topicStream: KStream = this.streamFactory.getKStream(topicName);
 
     topicStream.forEach(message => {
-      this.logger.debug('New msg on \'' + topicName + '\': ' + message);
+      this.logger.debug('Record msg on stream \'' + topicName + '\': '
+        + '\n\tKey: ' + (message.key ? message.key.toString('utf8') : '-')
+        + '\tPartition: ' + message.partition
+        + '\n\tOffset: ' + message.offset
+        + '\tTimestamp: ' + message.timestamp
+        + '\tSize: ' + message.size
+        + '\n\tValue :' + (message.value ? message.value.toString('utf8') : null));
     });
 
-    const outputStreamConfig: KafkaStreamsConfig = null;
-    topicStream.start(
-      () => { this.logger.debug('Stream on \'' + topicName + '\' ready. Started') },
-      (error) => { this.logger.error('Failure on Stream for \'' + topicName + '\'\n' + error) },
+    //const outputStreamConfig: KafkaStreamsConfig = null;
+    return topicStream.start(
+      () => { // kafka success callback
+        this.logger.debug('kStream on \'' + topicName + '\' ready. Started');
+        this.feedStream = topicStream;
+      },
+      (error) => { // kafka error callback
+        this.logger.error('Failed to start Stream on \'' + topicName + '\'\n' + error);
+        throw new Error('Failed to start Stream on \'' + topicName + '\'\n' + error);
+      },
       // false,
       // outputStreamConfig
     );
-
-    return topicStream;
   }
 
-  getFeedKTable(): KTable {
+  initFeedKTable(): Promise<void> {
     const topicName = ETopics.FEED;
-
-    const toKv = message => {
-      const msg = message.split(",");
+    this.logger.debug('Creating kTable  for \'' + topicName + '\'');
+    const keyMapperEtl = message => {
+      //const msg = message.value.id;
+      const feedConfig = JSON.parse(message.value.toString());
+      this.logger.debug('keyMapperEtl:\n' + JSON.stringify(feedConfig));
       return {
-        key: msg[0],
-        value: msg[1]
+        key: feedConfig.id, // message.key && message.key.toString(),
+        value: feedConfig
       };
     };
-    const topicTable: KTable = this.kafkaFactory.getKTable(topicName, toKv, null);
 
-    topicTable.consumeUntilMs(1000, () => { this.logger.debug('Table snapshot of \'' + topicName + '\' taken') });
+    // class myStorage extends KStorage {
+    //   constructor() {
+    //     super({
+    //     });
+    //   } 
+    // }
+    const topicTable: KTable = this.streamFactory.getKTable(topicName, keyMapperEtl, null);
+
+    // topicTable.consumeUntilMs(10000, () => { 
+    //   this.logger.debug('Table snapshot of \'' + topicName + '\' taken. Value:\n'+JSON.stringify(topicTable.getStorage()));
+
+    //   const kStorage: KStorage = this.kafkaFactory.getStorage();
+    //   this.logger.debug('kStorage: '+JSON.stringify(kStorage));
+
+    //   return topicTable;
+    // });
 
     const outputStreamConfig: KafkaStreamsConfig = null;
-    topicTable.start(
-      () => { this.logger.debug('Table extract of \'' + topicName + '\' ready. Starting') },
-      (error) => { this.logger.error('Failure on Table for \'' + topicName + '\'\n' + error) },
+    return topicTable.start(
+      () => { 
+        this.logger.debug('kTable  on \'' + topicName + '\' ready. Started');
+        this.feedTable = topicTable; 
+      },
+      (error) => { 
+        this.logger.error('Failed to start kTable for \'' + topicName + '\'\n' + error);
+        throw new Error('Failed to init kTable for \'' + topicName + '\'\n' + error);
+      },
       // false,
       // outputStreamConfig
     );
-    return topicTable;
   }
 
-  sendRecordFeed(feedConfig: FeedConfig): void {
+  async loadFeed(feedConfigId: string): Promise<FeedConfig> {
+    this.logger.debug('Request for loading feed \''+feedConfigId+'\' from kTable');
+    const feedKTable: KTable = this.feedTable;
+    const queryResult = feedKTable.getStorage().get(feedConfigId);
+    // this.logger.debug('Table get('+feedConfigId+'): '+queryResult+': '+JSON.stringify(queryResult));
+
+    const feedConfig = queryResult.then((result) => {
+      return result;
+    }).catch((error) => {
+      throw new Error('Failed to extract feed \''+feedConfigId+'\' from kTable.\nError: '+error);
+    });
+    return feedConfig;
+  }
+
+  castFeedConfig(feedConfig: FeedConfig): void {
     this.clientKafka.connect()
       .then((producer) => {
         const result = producer.send({
           topic: ETopics.FEED,
           messages: [{
             key: feedConfig.id,
-            value: JSON.stringify(feedConfig), // Check the need to stringify
+            value: JSON.stringify(feedConfig), // TODO Review Serialization format 
           }]
         });
         result
           .then((recordMetadata: RecordMetadata[]) => {
             recordMetadata.forEach(element => {
-              this.logger.debug('Sent feed record metadata: ' + element);
+              this.logger.debug('Sent feed record metadata: ' + JSON.stringify(element));
             });
           })
-          .catch((error) => { throw new Error('Failed sending feed config: ' + error.message) });
+          .catch((error) => { throw new Error('Failed to send feed config: ' + error.message) });
       })
       .catch((error: Error) => {
         throw new Error('Failed to connect kafka client ' + error.message)
       });
   }
 
-  async createFeed(priceFeedConfig: FeedConfig): Promise<DataFeedEnableResult> {
+  async createFeed(feedConfig: FeedConfig): Promise<DataFeedEnableResult> {
     // 1. Check if existing feed
     // 2. If Existing, enable/resume
     // 3. If non-existing feed: 
@@ -186,14 +246,37 @@ export class FeedHandlerService {
     //   ETopics.FEED,
     //   priceFeedConfig
     // );
-    this.sendRecordFeed(priceFeedConfig);
 
-    this.clientKafka.emit(
-      ETopics.CONTRACT,
-      priceFeedConfig.source
-    );
+    // TODO If feed creator != target owner then 
+    //    Check that the target owner is a Group
+    //      AND that feed creator is granted on the target contract owner of type Group
+    //    OR the feed creator is part of the Admin group
 
-    let feedStream: DataFeedEnableResult;
+    const feedId = feedConfig.id;
+    let feedStream: DataFeedEnableResult = await this.loadFeed(feedId)
+      .then((feed) => {
+        this.logger.debug('Loaded feed: '+feed);
+        if (feed == null || feed.id == null){
+          this.logger.log('Initiating the creation of Feed \''+feedId+'\'');
+          this.castFeedConfig(feedConfig);
+          return {
+            status: HttpStatus.OK,
+            message: 'New Feed initiated. Processing',
+            data: feedConfig
+          };
+        }
+        else {
+          return {
+            status: HttpStatus.BAD_REQUEST,
+            message: 'A Feed with the same ID already exists. Feed creation request declined.',
+            //data: feedConfig,
+          };
+        }
+      })
+      .catch((error) => { 
+        throw new Error('Failed to check if feed exists\n' + error+'\n'+error.stack);
+      });
+
     return feedStream;
   }
 

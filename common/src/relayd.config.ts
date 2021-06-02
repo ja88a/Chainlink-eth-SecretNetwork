@@ -36,7 +36,7 @@ export const configKafkaNative: KafkaStreamsConfig = {
   noptions: {
       'metadata.broker.list': KAFKA_HOST_PORT,
       'group.id': KAFKA_GROUP_ID,
-      'client.id': KAFKA_CLIENT_ID,
+      'client.id': KAFKA_CLIENT_ID+'-Streams',
       'event_cb': true,
       'compression.codec': 'snappy',
       'api.version.request': true,
@@ -128,3 +128,10 @@ export const configKafkaTopics: Map<String, ETopicConfig> = new Map([
   [ETopics.FEED, {name: 'relayd.feed', numPartitions: 1, replicationFactor:1}],
   [ETopics.CONTRACT, {name: 'relayd.contract', numPartitions: 1, replicationFactor:1}],
 ]);
+
+// export class CustStorage extends KStorage {
+//   constructor() {
+//     super({ // options
+//     });
+//   } 
+// }

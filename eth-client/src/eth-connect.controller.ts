@@ -1,104 +1,30 @@
-import { Controller, Get, Logger, Param } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { ethers, Event } from 'ethers';
 import { Result } from 'ethers/lib/utils';
-import { Decimals, EthConnectService } from './eth-connect.service';
+import { EthConnectService } from './eth-connect.service';
+import { CustExceptionFilter, HttpExceptionService } from '@relayd/common';
+
+import { Controller, UseFilters } from '@nestjs/common/decorators/core';
+import { Get, Param } from '@nestjs/common/decorators/http';
+import { Logger } from '@nestjs/common/services/logger.service';
 
 @Controller()
 export class EthConnectController {
-  private readonly logger = new Logger(EthConnectService.name);
+  private readonly logger = new Logger(EthConnectController.name);
 
-  private provider: ethers.providers.Provider;
-  //private signer: ethers.Wallet;
 
-  constructor(private readonly ethConnectService: EthConnectService) {
-    this.init();
-  }
+  constructor(
+    private readonly ethConnectService: EthConnectService,
+    private readonly httpExceptionService: HttpExceptionService
+  ) { }
 
-  init(): void {
-    this.provider = this.ethConnectService.initProvider();
-    this.ethConnectService.logProviderConnection(this.provider);
-
-    this.ethConnectService.initOracleContracts(this.provider);
-    
-    //this.start();
-  }
-
-  // http://localhost:3000/eth/start
-  @Get('/eth/polling')
-  @Cron('1 * * * * *')
-  pollContractOraclePrice(): string {
-    const timeFetchStart = Date.now();
-    this.ethConnectService
-      .loadAllContractData()
-      .then((result: Map<string, Result>) => {
-        this.logger.debug('Fetching all contracts data took ' + (Date.now() - timeFetchStart) + ' ms');
-        this.logger.debug('Nb tracked records: ' + this.ethConnectService.getOracleContractData().length);
-
-        result.forEach((value: Result, key: string) => {
-          const priceRaw = value['answer'];
-          let price = ethers.utils.formatUnits(priceRaw, Decimals.FIAT);
-          price = ethers.utils.commify(price);
-          this.logger.log(
-            'Oracle price for ' +
-              key +
-              ': ' +
-              price +
-              '\tset at ' +
-              new Date(value['updatedAt'] * 1000).toISOString() +
-              ' round ' +
-              value['answeredInRound']
-          );
-        });
-        //this.logger.debug('btcusd price: ' + result.get(CstPair.BTCUSD)['answer']);
-      })
-      .catch((error) => this.logger.error("Failed to fetch all oracles' data\n" + error, error));
-    return '200';
-  }
-
-  // http://localhost:3000/eth/event/answerUpdated/btcusd
-  @Get('/eth/event/answerUpdated/:pair')
-  loadEventAnswerUpdated(@Param('pair') pair: string): string {
-    const contract = this.ethConnectService.getOracleContracts().get(pair);
-    if (!contract) {
-      this.logger.warn('Unknown contract key requested "' + pair + '" for loading events answerUpdated');
-      return '404';
-    }
-    this.ethConnectService
-      .loadEventAnswerUpdated(contract, 200)
-      .then((events: Event[]) => {
-        events?.forEach(updEvent => {
-          if (updEvent.decodeError) {
-            this.logger.warn("Event Decode Error found for AnswerUpdated on "+ contract.address + ' ' + updEvent.decodeError)
-          }
-          this.logger.debug(updEvent);
-          //this.logger.log('Current value: ' + updEvent.decode('data'));
-        });
-        this.logger.log('got something: ' + events);
-      })
-      .catch((error) => this.logger.error(error));
-    return '200';
-  }
-
-  // http://localhost:3000/eth/log/answerUpdated/btcusd
-  @Get('/eth/log/answerUpdated/:pair')
-  loadLogEvents(@Param('pair') pair: string): string {
-    const contract = this.ethConnectService.getOracleContracts().get(pair);
-    if (!contract) {
-      this.logger.warn('Unknown contract key requested "' + pair + '" for loading events answerUpdated');
-      return '404';
-    }
-    this.ethConnectService
-      .loadLogEventAnswerUpdated(contract, 10, 1000, 10)
-      .then((events) => {
-        this.logger.log('Found ' + events.length + ' logged event(s) "AnswerUpdated" for ' + pair);
-      })
-      .catch((error) => this.logger.error(error));
-    return '200';
+  async onModuleInit() {
+    this.ethConnectService.initProvider();
+    this.ethConnectService.logProviderConnection();
   }
 
   // http://localhost:3000/eth/event/listen/btcusd
   @Get('eth/event/listen/:pair')
+  @UseFilters(new CustExceptionFilter())
   listenEventAnswerUpdated(@Param('pair') pair: string): string {
     const contract = this.ethConnectService.getOracleContracts().get(pair);
     if (!contract) {

@@ -1,11 +1,11 @@
 {
   "name": "@relayd/node-aio",
-  "private": true,
   "version": "0.1.0",
   "description": "A NestJS-based Relayer of Ethereum Chainlink Oracle contracts data towards the SecretNetwork",
+  "author": "Jabba Theone",
   "license": "MIT",
   "main": "dist/main.js",
-
+  "types": "dist/types",
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "nest build",
@@ -42,23 +42,23 @@
     "@nestjs/testing": "^7.6.15",
     "@types/cron": "^1.7.2",
     "@types/express": "^4.17.11",
-    "@types/jest": "^26.0.22",
+    "@types/jest": "^26.0.23",
     "@types/node": "^12.12.6",
     "@types/supertest": "^2.0.10",
-    "@typescript-eslint/eslint-plugin": "^4.19.0",
-    "@typescript-eslint/parser": "^4.19.0",
-    "eslint": "^7.22.0",
-    "eslint-config-prettier": "^8.1.0",
-    "eslint-plugin-prettier": "^3.3.1",
+    "@typescript-eslint/eslint-plugin": "^4.22.0",
+    "@typescript-eslint/parser": "^4.22.0",
+    "eslint": "^7.25.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-prettier": "^3.4.0",
     "jest": "^26.6.3",
     "json-schema-to-typescript": "^10.1.4",
     "prettier": "^2.2.1",
     "supertest": "^6.1.3",
-    "ts-jest": "^26.5.4",
-    "ts-loader": "^8.0.18",
+    "ts-jest": "^26.5.5",
+    "ts-loader": "^9.1.1",
     "ts-node": "^9.1.1",
     "tsconfig-paths": "^3.9.0",
-    "typescript": "^4.2.3"
+    "typescript": "^4.2.4"
   },
   "jest": {
     "moduleFileExtensions": [

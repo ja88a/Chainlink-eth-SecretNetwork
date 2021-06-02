@@ -1,14 +1,14 @@
-//import { Module } from '@nestjs/common';
 import { Module } from '@nestjs/common/decorators/modules/module.decorator';
 import { ConfigModule } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule';
 
 import { EthConnectController } from './eth-connect.controller';
 import { EthConnectService } from './eth-connect.service';
+import { HttpExceptionService } from '@relayd/common';
+import { EthConnectTestModule } from './eth-connect-test/eth-connect.module';
 
 @Module({
-  imports: [ConfigModule.forRoot()], //, ScheduleModule.forRoot()
+  imports: [ConfigModule.forRoot(), EthConnectTestModule], //, EthConnectTestModule
   controllers: [EthConnectController],
-  providers: [EthConnectService],
+  providers: [EthConnectService, HttpExceptionService],
 })
 export class EthConnectModule {}

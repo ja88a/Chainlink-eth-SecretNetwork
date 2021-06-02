@@ -19,7 +19,11 @@ async function bootstrap() {
     })
   );
   
+  // Starts listening for shutdown hooks
+  app.enableShutdownHooks();
+
   await app.startAllMicroservicesAsync();
+  
   await app.listen(3000);
 }
 bootstrap();

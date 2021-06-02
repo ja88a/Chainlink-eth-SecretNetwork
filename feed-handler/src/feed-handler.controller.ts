@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { Body, Controller, Get, HttpStatus, Logger, OnModuleInit, Post, UseFilters } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Logger, Post, UseFilters } from '@nestjs/common';
 import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
 
 import { DataFeedEnableResult, FeedConfig, TMessageType0, VALID_OPT } from '@relayd/common';
@@ -9,7 +9,7 @@ import { validateOrReject } from 'class-validator';
 import { FeedHandlerService } from './feed-handler.service';
 
 @Controller()
-export class FeedHandlerController implements OnModuleInit {
+export class FeedHandlerController { // implements OnModuleInit
   constructor(
     private readonly feedHandlerService: FeedHandlerService,
     private readonly httpExceptionService: HttpExceptionService

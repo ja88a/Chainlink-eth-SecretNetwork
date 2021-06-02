@@ -7,7 +7,7 @@
   "main": "dist/index.js",
   "types": "dist/types",
   "scripts": {
-    "docs": "shx rm -rf docs && typedoc --options ../typedoc.js",
+    "docs": "shx rm -rf docs && typedoc --options ./typedoc.js",
     "move-types": "shx rm -rf ./types && shx cp -r dist/types ./types && shx rm -f ./types/*.spec.d.ts && shx rm -f ./types/*.d.ts.map",
     "format-types": "prettier --write --loglevel warn \"./types/**/*.d.ts\"",
     "build:raw": "shx rm -rf ./dist && tsc && yarn move-types && yarn format-types",
@@ -33,8 +33,7 @@
     "@nestjs/common": "^7.6.15",
     "@nestjs/config": "^0.6.3",
     "@nestjs/core": "^7.6.15",
-    "@nestjs/microservices": "^7.6.15",
-    "@nestjs/platform-express": "^7.6.15",
+    "@nestjs/microservices": "^7.6.17",
     "@relayd/common": "~0.1.0",
     "class-transformer": "^0.4.0",
     "class-validator": "^0.13.1",
@@ -79,6 +78,9 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
   }

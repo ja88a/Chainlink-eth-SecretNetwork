@@ -6,12 +6,13 @@ import { Observable } from 'rxjs/internal/Observable';
 
 import { KafkaStreams, KStream, KTable, KafkaStreamsConfig } from 'kafka-streams';
 
-import { configKafka, configKafkaNative, ETopics, configKafkaTopics, KTableQueryResult } from '@relayd/common';
+import { configKafka, configKafkaNative, ETopics, configKafkaTopics } from '@relayd/common';
 import { FeedConfig, DataFeedEnableResult, TMessageType0 } from '@relayd/common';
 import { RecordMetadata } from '@nestjs/microservices/external/kafka.interface';
+import { OnApplicationShutdown } from '@nestjs/common/interfaces/hooks';
 
 @Injectable()
-export class FeedHandlerService {
+export class FeedHandlerService  implements OnApplicationShutdown {
 
   private readonly logger = new Logger(FeedHandlerService.name, true);
 
@@ -41,14 +42,19 @@ export class FeedHandlerService {
     this.initStreams();
   }
 
-  async shudown() {
+  onApplicationShutdown(signal: string) {
+    console.warn('Shutting down on signal '+signal); // e.g. "SIGINT"
+    this.shutdown();
+  }
+
+  async shutdown() {
     if (this.streamFactory)
       await this.streamFactory.closeAll()
         .then((results) => {this.logger.debug("Feed streams closed. "+results)})
         .catch((error) => {throw new Error('Unexpected closure of Feed streams\nError: '+error)});
     if (this.clientKafka)
       await this.clientKafka.close()
-        .then(() => {this.logger.debug("Feed client closed. ")})
+        .then(() => {this.logger.debug("Feed client closed.")})
         .catch((error) => {throw new Error('Unexpected closure of Feed client\nError: '+error)});
   } 
 
@@ -157,21 +163,14 @@ export class FeedHandlerService {
     const topicName = ETopics.FEED;
     this.logger.debug('Creating kTable  for \'' + topicName + '\'');
     const keyMapperEtl = message => {
-      //const msg = message.value.id;
       const feedConfig = JSON.parse(message.value.toString());
-      this.logger.debug('keyMapperEtl:\n' + JSON.stringify(feedConfig));
+      this.logger.debug(topicName+' kTable entry:\t' + JSON.stringify(feedConfig));
       return {
         key: feedConfig.id, // message.key && message.key.toString(),
         value: feedConfig
       };
     };
 
-    // class myStorage extends KStorage {
-    //   constructor() {
-    //     super({
-    //     });
-    //   } 
-    // }
     const topicTable: KTable = this.streamFactory.getKTable(topicName, keyMapperEtl, null);
 
     // topicTable.consumeUntilMs(10000, () => { 
@@ -215,23 +214,22 @@ export class FeedHandlerService {
   castFeedConfig(feedConfig: FeedConfig): void {
     this.clientKafka.connect()
       .then((producer) => {
-        const result = producer.send({
+        producer.send({
           topic: ETopics.FEED,
           messages: [{
             key: feedConfig.id,
             value: JSON.stringify(feedConfig), // TODO Review Serialization format 
           }]
+        }).then((recordMetadata: RecordMetadata[]) => {
+          recordMetadata.forEach(element => {
+            this.logger.debug('Sent feed record metadata: ' + JSON.stringify(element));
+          });
+        }).catch((error) => { 
+          throw new Error('Failed to cast Feed Config.\nError: ' + error) 
         });
-        result
-          .then((recordMetadata: RecordMetadata[]) => {
-            recordMetadata.forEach(element => {
-              this.logger.debug('Sent feed record metadata: ' + JSON.stringify(element));
-            });
-          })
-          .catch((error) => { throw new Error('Failed to send feed config: ' + error.message) });
       })
       .catch((error: Error) => {
-        throw new Error('Failed to connect kafka client ' + error.message)
+        throw new Error('Failed kafka client connection.\nError: ' + error)
       });
   }
 
@@ -267,7 +265,7 @@ export class FeedHandlerService {
         }
         else {
           return {
-            status: HttpStatus.BAD_REQUEST,
+            status: HttpStatus.NOT_ACCEPTABLE,
             message: 'A Feed with the same ID already exists. Feed creation request declined.',
             //data: feedConfig,
           };

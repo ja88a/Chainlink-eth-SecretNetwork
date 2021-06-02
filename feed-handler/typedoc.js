@@ -1,4 +1,4 @@
-const packageJson = require("./bridge-broker/package.json");
+const packageJson = require("./package.json");
 
 module.exports = {
   src: ["./src"],

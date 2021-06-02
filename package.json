@@ -59,6 +59,7 @@
     "prettier": "^2.0.5",
     "shx": "^0.3.3",
     "ts-node": "^8.10.2",
+    "typedoc": "^0.20.36",
     "typescript": "^4.2.4",
     "webpack": "^5.37.1",
     "wsrun": "^5.2.4"

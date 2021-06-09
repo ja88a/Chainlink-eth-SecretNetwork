@@ -12,7 +12,7 @@ import { RecordMetadata } from '@nestjs/microservices/external/kafka.interface';
 import { OnApplicationShutdown } from '@nestjs/common/interfaces/hooks';
 
 @Injectable()
-export class FeedHandlerService  implements OnApplicationShutdown {
+export class FeedHandlerService {
 
   private readonly logger = new Logger(FeedHandlerService.name, true);
 
@@ -42,12 +42,8 @@ export class FeedHandlerService  implements OnApplicationShutdown {
     this.initStreams();
   }
 
-  onApplicationShutdown(signal: string) {
-    console.warn('Shutting down on signal '+signal); // e.g. "SIGINT"
-    this.shutdown();
-  }
-
-  async shutdown() {
+  async shutdown(signal:string) {
+    console.debug('Shutting down Feed service on signal '+signal);
     if (this.streamFactory)
       await this.streamFactory.closeAll()
         .then((results) => {this.logger.debug("Feed streams closed. "+results)})
@@ -214,6 +210,7 @@ export class FeedHandlerService  implements OnApplicationShutdown {
   castFeedConfig(feedConfig: FeedConfig): void {
     this.clientKafka.connect()
       .then((producer) => {
+
         producer.send({
           topic: ETopics.FEED,
           messages: [{
@@ -222,10 +219,24 @@ export class FeedHandlerService  implements OnApplicationShutdown {
           }]
         }).then((recordMetadata: RecordMetadata[]) => {
           recordMetadata.forEach(element => {
-            this.logger.debug('Sent feed record metadata: ' + JSON.stringify(element));
+            this.logger.debug('Sent Feed record metadata: ' + JSON.stringify(element));
           });
         }).catch((error) => { 
           throw new Error('Failed to cast Feed Config.\nError: ' + error) 
+        });
+
+        producer.send({
+          topic: ETopics.CONTRACT,
+          messages: [{
+            key: feedConfig.id,
+            value: JSON.stringify(feedConfig.source), // TODO Review Serialization format 
+          }]
+        }).then((recordMetadata: RecordMetadata[]) => {
+          recordMetadata.forEach(element => {
+            this.logger.debug('Sent Contract record metadata: ' + JSON.stringify(element));
+          });
+        }).catch((error) => { 
+          throw new Error('Failed to cast Contract config.\nError: ' + error) 
         });
       })
       .catch((error: Error) => {
@@ -255,18 +266,32 @@ export class FeedHandlerService  implements OnApplicationShutdown {
       .then((feed) => {
         this.logger.debug('Loaded feed: '+feed);
         if (feed == null || feed.id == null){
-          this.logger.log('Initiating the creation of Feed \''+feedId+'\'');
+          this.logger.log('Initiate creation of Feed \''+feedId+'\'');
+          const dateNow = new Date().toISOString();
+          feedConfig.dateCreated = dateNow;
+          feedConfig.dateUpdated = dateNow;
           this.castFeedConfig(feedConfig);
           return {
             status: HttpStatus.OK,
-            message: 'New Feed initiated. Processing',
+            message: 'Initiating Feed',
             data: feedConfig
           };
         }
+        else if ((Date.now() - Date.parse(feed.dateUpdated) > 5*60*1000) 
+          && (feed.source.status != HttpStatus.OK || feed.target && feed.target.status != HttpStatus.OK)) {
+          this.logger.log('Resume processing of existing Feed \''+feedId+'\'');
+          feedConfig.dateUpdated = new Date().toISOString();
+          this.castFeedConfig(feedConfig);
+          return {
+            status: HttpStatus.OK,
+            message: 'Resuming Feed',
+            data: feedConfig
+          };
+        } 
         else {
           return {
             status: HttpStatus.NOT_ACCEPTABLE,
-            message: 'A Feed with the same ID already exists. Feed creation request declined.',
+            message: 'A running Feed with the same ID already exists. Feed creation declined.',
             //data: feedConfig,
           };
         }

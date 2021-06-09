@@ -3,7 +3,7 @@ import { Body, Controller, Get, HttpStatus, Logger, Post, UseFilters } from '@ne
 import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
 
 import { DataFeedEnableResult, FeedConfig, TMessageType0, VALID_OPT } from '@relayd/common';
-import { CustExceptionFilter, HttpExceptionService } from '@relayd/common';
+import { HttpExceptionFilterCust, HttpExceptionService } from '@relayd/common';
 
 import { validateOrReject } from 'class-validator';
 import { FeedHandlerService } from './feed-handler.service';
@@ -19,6 +19,12 @@ export class FeedHandlerController { // implements OnModuleInit
 
   async onModuleInit() {
     this.feedHandlerService.init();
+  }
+
+  onApplicationShutdown(signal: string) {
+    this.logger.warn('Shutting down Feed Handler on signal ' + signal); // e.g. "SIGINT"
+    if (this.feedHandlerService)
+      this.feedHandlerService.shutdown(signal);
   }
 
   @Get('/relay/test/msg')
@@ -39,9 +45,9 @@ export class FeedHandlerController { // implements OnModuleInit
    */
   // $ curl -d '{"id":"scrtusd", "name":"SCRT/USD price feed", "updateMode":"listen"}' -H "Content-Type: application/json" -X POST http://localhost:3000/relay/feed/price
   @Post('/relay/feed/price')
-  @UseFilters(new CustExceptionFilter())
+  @UseFilters(HttpExceptionFilterCust.for())
   async addFeedPricePair(@Body() feedConfig: FeedConfig): Promise<DataFeedEnableResult> {
-    this.logger.log('Request for adding a new Price Data Feed');
+    this.logger.log('Request for adding a new Price Data Feed: ' + feedConfig.id);
     this.logger.debug('Payload:\n' + JSON.stringify(feedConfig));
 
     const valid = validateOrReject(feedConfig, VALID_OPT).catch(errors => {

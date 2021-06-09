@@ -8,22 +8,23 @@
   "types": "dist/types/index.d.ts",
 
   "scripts": {
-    "docs": "shx rm -rf docs && typedoc --options ../typedoc.js",
-    "move-types": "shx rm -rf ./types/* && shx cp -r dist/types/* ./types && rm -rf ./types/testdata && shx rm -f ./types/*.spec.d.ts && shx rm -f ./types/*.d.ts.map",
-    "format-types": "prettier --write --loglevel warn \"./types/**/*.d.ts\"",
-    "build:raw": "shx rm -rf ./dist && tsc && yarn move-types && yarn format-types",
-    "clean": "shx rm -rf ./dist ./*.tsbuildinfo",
-    "reset": "yarn clean && shx rm -rf ./node_modules ./yarn.lock ./package-lock.json",
-    "prebuild": "rimraf dist",
     "build": "nest build",
+    "build:raw": "shx rm -rf ./dist && tsc && yarn move-types && yarn format-types",
+    "build:watch": "yarn build --watch",
+    "clean": "shx rm -rf ./dist ./*.tsbuildinfo",
+    "docs": "shx rm -rf docs && typedoc --options ../typedoc.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "prebuild": "rimraf dist",
     "lint": "eslint '{src,apps,libs,test}/**/*.ts' --fix",
+    "reset": "yarn clean && shx rm -rf ./node_modules ./yarn.lock ./package-lock.json",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
-  },
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "types:move": "shx rm -rf ./types/* && shx cp -r dist/types/* ./types && rm -rf ./types/testdata && shx rm -f ./types/*.spec.d.ts && shx rm -f ./types/*.d.ts.map",
+    "types:format": "prettier --write --loglevel warn \"./types/**/*.d.ts\""
+   },
   "dependencies": {
     "@nestjs/common": "^7.6.15",
     "@nestjs/config": "^0.6.3",

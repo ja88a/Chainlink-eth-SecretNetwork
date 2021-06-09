@@ -1,23 +1,21 @@
-import { from } from 'rxjs';
+// declare module '@relayd/common';
 
-// declare module '@relayd/commons';
 export { 
   configKafka, 
   configKafkaNative,
   configKafkaClient, 
   configKafkaConsumer, 
-  configKafkaTopics, 
-  ETopics 
-} from './relayd.config';
+  configKafkaTopics,
+  configEthers,
+  ETopics,
+  EEthersNetwork,
+} from './config/relayd.config';
 
-export { 
+export {
   VALID_OPT, 
   EErrorExt 
-} from './relayd.config';
+} from './config/relayd.config';
 
-export { 
-  HttpExceptionService, 
-  CustExceptionFilter 
-} from './http.error';
+export * from './utils/index';
 
-export * from './relayd.data';
+export * from './data/index';

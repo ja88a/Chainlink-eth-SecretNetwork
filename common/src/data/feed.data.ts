@@ -14,8 +14,8 @@ import {
   ValidateNested,
   Min,
   IsPositive,
-  MinLength,
-  isPositive,
+  ArrayMaxSize,
+  IsDate,
 } from 'class-validator';
 
 // TODO Remove Temporary struct
@@ -99,21 +99,6 @@ export enum EFeedSourceEvent {
   default = ANSWER_UPDATED
 };
 
-
-// /** Feed update mode */
-// export enum EDataFeedUpdMode {
-//   /** Listen to update events */
-//   LISTEN = 'listen',
-//   /** Regular polling for value changes */
-//   PULL = 'pull',
-//   default = LISTEN,
-// };
-// export enum EFeedSourcePoll {
-//   EVENT = 'event',
-//   TIMEPERIOD = 'period',
-//   default = EVENT
-// };
-
 /** Supported modes to watch for source contract updates */
 export enum EFeedSourcePoll {
   /** Monitor / Listen to emitted update events */
@@ -153,7 +138,7 @@ export class FeedConfigSourceData {
   @IsOptional()
   @Min(0)
   @Max(30)
-  decimals?: Number = 18;
+  decimals?: number = 18;
 
   /** Last seen source data value */
   @IsOptional()
@@ -161,10 +146,25 @@ export class FeedConfigSourceData {
 
   /** Last time the source data value was reported as changed */
   @IsOptional()
-  time?: Number;
+  @IsPositive()
+  time?: number;
 
   // TODO Review if timeChecked & timeChanged on source data shall be considered
 }
+
+export class ProcessingIssue {
+  @IsDefined()
+  @Length(3, 40)
+  source: string;
+
+  @IsDefined()
+  @Length(3, 40)
+  value: string;
+
+  @IsOptional()
+  @Length(3, 100)
+  description?: string;
+} 
 
 /** 
  * Source of a Data feed 
@@ -172,13 +172,25 @@ export class FeedConfigSourceData {
 export class FeedConfigSource {
   /** Source status, in terms of access to its functions and data */
   @IsOptional()
+  // @IsPositive()
+  // @Max(1000)
+  // status?: number = HttpStatus.PARTIAL_CONTENT;
   @IsEnum(HttpStatus)
   status?: HttpStatus = HttpStatus.PARTIAL_CONTENT;
+
+  /** Reporting of issues while processing the contract */
+  @IsOptional()
+  @ArrayMaxSize(20) 
+  @ValidateNested()
+  @Type(() => ProcessingIssue)
+  issue?: ProcessingIssue[];
 
   /** Hosting network of the data Source (contract) */
   @IsOptional()
   @IsEnum(EFeedSourceNetwork)
   network?: EFeedSourceNetwork = EFeedSourceNetwork.default;
+  // @Length(3, 20)
+  // network?: string = EFeedSourceNetwork.default;
 
   /** Address of the source contract */
   @IsDefined()
@@ -190,6 +202,8 @@ export class FeedConfigSource {
   @IsOptional()
   @IsEnum(EFeedSourceType)
   type?: EFeedSourceType = EFeedSourceType.default;
+  // @Length(3, 40)
+  // type?: string = EFeedSourceType.default;
 
   /** Polling mode to check for data changes: via listening to events or regularly querying the source contract */
   @IsOptional()
@@ -215,7 +229,7 @@ export class FeedConfigSource {
   @ValidateIf(o => o.poll === EFeedSourcePoll.TIMEPERIOD)
   @Min(20)
   @Max(48 * 60 * 60)
-  period?: Number = 120;
+  period?: number = 120;
 
   /** Optional specification of the source contract method to use when querying/pulling the contract data */
   @IsOptional()
@@ -263,7 +277,7 @@ export class FeedConfigTargetData {
   @IsOptional()
   @Min(0)
   @Max(30)
-  decimals?: Number = 18;
+  decimals?: number = 18;
 
   /** Last set data value */
   @IsOptional()
@@ -272,7 +286,7 @@ export class FeedConfigTargetData {
   /** Last time the target data value was updated */
   @IsOptional()
   @IsPositive()
-  time?: Number;
+  time?: number;
 };
 
 /**
@@ -339,7 +353,7 @@ export class FeedConfig {
 
   /** Feed config version number, optional */
   @IsOptional() 
-  version?: Number = 1; 
+  version?: number = 1; 
 
   /** Data Feed name
    * @example 'Chainlink price for BTC/USD' 
@@ -360,6 +374,16 @@ export class FeedConfig {
   @Contains('secret')
   creator: string;
 
+  /** Feed 1st creation date & time */
+  @IsOptional()
+  @IsDate()
+  dateCreated: string;
+
+  /** Feed config last update date & time */
+  @IsOptional()
+  @IsDate()
+  dateUpdated: string;
+
   /** Data feed data configuration */
   @IsDefined()
   @ValidateNested()
@@ -379,37 +403,3 @@ export class FeedConfig {
   target?: FeedConfigTarget;
 };
 
-
-export class ContractUpdate {
-  /** The feed the contract's update relates to */
-  @IsDefined()
-  feed: string;
-
-  /** Version number of the contract update */
-  @IsDefined()
-  version: Number;
-
-  /** ID of the issuer emiting the contract update */
-  @IsDefined()
-  issuer: string;
-
-  /** Address of the source contract emiting a data value update */
-  @ValidateIf(o => o.target === undefined)
-  @IsEthereumAddress()
-  source?: string;
-
-  /** Address of the target contract emiting a data value update */
-  @ValidateIf(o => o.source === undefined)
-  @Length(46, 46)
-  @Contains('secret')
-  target?: string;
-
-  /** Last extracted data value(s) */
-  @IsDefined()
-  value: unknown;
-
-  /** Time since epoch (s) when the source value was detected as updated on source or updated on target */
-  @IsDefined()
-  @IsPositive()
-  time: Number;
-}

@@ -34,44 +34,44 @@ export const configKafka: KafkaOptions = {
 
 export const configKafkaNative: KafkaStreamsConfig = {
   noptions: {
-      'metadata.broker.list': KAFKA_HOST_PORT,
-      'group.id': KAFKA_GROUP_ID,
-      'client.id': KAFKA_CLIENT_ID+'-Streams',
-      'event_cb': true,
-      'compression.codec': 'snappy',
-      'api.version.request': true,
+    'metadata.broker.list': KAFKA_HOST_PORT,
+    'group.id': KAFKA_GROUP_ID,
+    'client.id': KAFKA_CLIENT_ID + '-Streams',
+    'event_cb': true,
+    'compression.codec': 'snappy',
+    'api.version.request': true,
 
-      'socket.keepalive.enable': true,
-      'socket.blocking.max.ms': 100,
+    'socket.keepalive.enable': true,
+    'socket.blocking.max.ms': 100,
 
-      'enable.auto.commit': false,
-      'auto.commit.interval.ms': 100,
+    'enable.auto.commit': false,
+    'auto.commit.interval.ms': 100,
 
-      'heartbeat.interval.ms': 250,
-      'retry.backoff.ms': 250,
+    'heartbeat.interval.ms': 250,
+    'retry.backoff.ms': 250,
 
-      'fetch.min.bytes': 100,
-      'fetch.message.max.bytes': 2 * 1024 * 1024,
-      'queued.min.messages': 100,
+    'fetch.min.bytes': 100,
+    'fetch.message.max.bytes': 2 * 1024 * 1024,
+    'queued.min.messages': 100,
 
-      'fetch.error.backoff.ms': 100,
-      'queued.max.messages.kbytes': 50,
+    'fetch.error.backoff.ms': 100,
+    'queued.max.messages.kbytes': 50,
 
-      'fetch.wait.max.ms': 1000,
-      'queue.buffering.max.ms': 1000,
+    'fetch.wait.max.ms': 1000,
+    'queue.buffering.max.ms': 1000,
 
-      'batch.num.messages': 10000
+    'batch.num.messages': 10000
   },
   tconf: {
-      'auto.offset.reset': 'earliest',
-      'request.required.acks': 1
+    'auto.offset.reset': 'earliest',
+    'request.required.acks': 1
   },
   batchOptions: {
-      batchSize: 5,
-      commitEveryNBatch: 1,
-      concurrency: 1,
-      commitSync: false,
-      noBatchCommits: false
+    batchSize: 5,
+    commitEveryNBatch: 1,
+    concurrency: 1,
+    commitSync: false,
+    noBatchCommits: false
   }
 };
 
@@ -108,9 +108,11 @@ export enum EErrorExt {
  * App default topics / channels for emiting or listening to messages
  */
 export enum ETopics {
+  ERROR = 'relayd.error',
   FEED = 'relayd.feed',
-  CONTRACT = 'relayd.contract'
-} 
+  CONTRACT = 'relayd.contract',
+  CONTRACT_DATA = 'relayd.contract',
+}
 
 export type ETopicConfig = {
   name: string,
@@ -125,8 +127,10 @@ export type ETopicConfig = {
 // configKafkaTopics.set(ETopics.FEED, {name: 'relayd.feed', numPartitions: 1, replicationFactor:1});
 // configKafkaTopics.set(ETopics.CONTRACT, {name: 'elayd.contract', numPartitions: 1, replicationFactor:1});
 export const configKafkaTopics: Map<String, ETopicConfig> = new Map([
-  [ETopics.FEED, {name: 'relayd.feed', numPartitions: 1, replicationFactor:1}],
-  [ETopics.CONTRACT, {name: 'relayd.contract', numPartitions: 1, replicationFactor:1}],
+  [ETopics.ERROR, { name: ETopics.ERROR, numPartitions: 1, replicationFactor: 1 }],
+  [ETopics.FEED, { name: ETopics.FEED, numPartitions: 1, replicationFactor: 1 }],
+  [ETopics.CONTRACT, { name: ETopics.CONTRACT, numPartitions: 1, replicationFactor: 1 }],
+  [ETopics.CONTRACT_DATA, { name: ETopics.CONTRACT_DATA, numPartitions: 1, replicationFactor: 1 }],
 ]);
 
 // export class CustStorage extends KStorage {
@@ -135,3 +139,19 @@ export const configKafkaTopics: Map<String, ETopicConfig> = new Map([
 //     });
 //   } 
 // }
+
+export const configEthers = {
+  PROVIDER_TYPE: 'ETH_PROVIDER_TYPE',
+  CUST_PROVIDER_URL: 'ETH_PROVIDER_LOCAL_URL',
+  PROVIDER_NETWORK_ID: 'ETH_PROVIDER_NETWORK_ID',
+  ETHERSCAN_API_KEY: 'ETHERSCAN_API_KEY',
+  INFURA_PROJECT_ID: 'INFURA_PROJECT_ID',
+  INFURA_PROJECT_SECRET: 'INFURA_PROJECT_SECRET'
+};
+
+export enum EEthersNetwork {
+  ETH_MAIN = 'homestead',
+  ETH_TEST_KOVAN = 'kovan',
+  ETH_TEST_RINKEBY = 'rinkeby',
+  default = ETH_MAIN
+};

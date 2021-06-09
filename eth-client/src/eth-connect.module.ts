@@ -7,7 +7,7 @@ import { HttpExceptionService } from '@relayd/common';
 import { EthConnectTestModule } from './eth-connect-test/eth-connect.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(), EthConnectTestModule], //, EthConnectTestModule
+  imports: [ConfigModule.forRoot()], //, EthConnectTestModule
   controllers: [EthConnectController],
   providers: [EthConnectService, HttpExceptionService],
 })

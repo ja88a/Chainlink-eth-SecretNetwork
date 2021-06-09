@@ -2,7 +2,7 @@ import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Injec
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 
-import { EErrorExt } from './relayd.config';
+import { EErrorExt } from '../config/relayd.config';
 
 // @Catch(HttpException)
 // export class HttpExceptionFilter implements ExceptionFilter {
@@ -22,24 +22,37 @@ import { EErrorExt } from './relayd.config';
 //   }
 // }
 
-@Catch(Error)
-export class CustExceptionFilter implements ExceptionFilter {
 
-  private readonly logger = new Logger(CustExceptionFilter.name);
+@Catch(Error)
+export class HttpExceptionFilterCust implements ExceptionFilter {
+
+  private readonly logger = new Logger(HttpExceptionFilterCust.name);
 
   private readonly errorComMode: string;
 
-  constructor(private readonly configService?: ConfigService) {
+  private static instance: Map<string, HttpExceptionFilterCust>;
+
+  static for(instanceId?: string): HttpExceptionFilterCust {
+    const instId: string = instanceId || '*'
+    if (this.instance === undefined)
+      this.instance = new Map();
+    let inst = this.instance.get(instId);
+    if (inst == undefined)
+      inst = new HttpExceptionFilterCust(instId);
+      this.instance.set(instId, inst);
+    return inst;
+  }
+
+  constructor(instanceId?: string) {
+    const configService = new ConfigService();
     if (configService === undefined) {
-      this.logger.warn('No Config available');
+      this.logger.debug('No Config available');
       this.errorComMode = EErrorExt.default
     }
     else {
-      this.errorComMode = this.configService.get<string>('ERROR_COM_MODE') || EErrorExt.default;
+      this.errorComMode = configService.get<string>('ERROR_COM_MODE') || EErrorExt.default;
     }
-    this.logger.log('Error communication mode: '+this.errorComMode);
-    // Cut the loose
-    this.configService = null;
+    this.logger.log('Errors external communication mode for \''+instanceId+'\': '+this.errorComMode);
   }
 
   catch(exception: any, host: ArgumentsHost): any {

@@ -5,16 +5,36 @@ import {
   Contains,
   ValidateIf,
   IsPositive,
+  IsDateString,
+  IsOptional,
+  IsNumber,
+  Max,
   } from 'class-validator';
 
-export class OracleContractData {
-  value: any; 
-  time: string; // ISO date & time OR number?
+export class OracleData {
+  @IsDefined()
+  value: any;
+
+  @IsDateString()
+  time: string; // ISO date & time OR epoch number?
+
+  @IsOptional()
+  @IsNumber()
   round?: number = 0;
+
+  @IsOptional()
+  @IsPositive()
+  @Max(30)
+  decimals?: number;
 };
 
-export class OraclePriceContractData extends OracleContractData {
+export class OraclePriceData extends OracleData {
+  @IsNumber()
   value: number = 0;
+
+  @IsPositive()
+  @Max(30)
+  decimals: number;
 };
 
 export class ProviderNetwork {
@@ -31,7 +51,7 @@ export enum EContractCastReason {
 //  latestRoundData() returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
 export enum EResultFieldLatestRoundData {
   VALUE = 'answer',
-  UPDATE_TIME = 'upddatedAt',
+  UPDATE_TIME = 'updatedAt',
 }
 
 export class ContractUpdate {
@@ -41,7 +61,7 @@ export class ContractUpdate {
   
   /** Version number of the contract update */
   @IsDefined()
-  version: Number;
+  version: number;
   
   /** ID of the issuer emiting the contract update */
   @IsDefined()
@@ -64,6 +84,6 @@ export class ContractUpdate {
   
   /** Time since epoch (s) when the source value was detected as updated on source or updated on target */
   @IsDefined()
-  @IsPositive()
-  time: Number;
+  @IsDateString()
+  time: string;
 }

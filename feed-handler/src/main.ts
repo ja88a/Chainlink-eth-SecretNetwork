@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core/nest-factory';
-import { configKafka } from '@relayd/common';
+import { getConfigKafka, RelaydKClient, RelaydKGroup } from '@relayd/common';
 import { FeedHandlerModule } from './feed-handler.module';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
 
@@ -10,7 +10,8 @@ async function bootstrap() {
     // logger: false,
   });
 
-  app.connectMicroservice(configKafka);
+  const msConfig = getConfigKafka(RelaydKClient.FEED, RelaydKGroup.FEED);
+  app.connectMicroservice(msConfig);
 
   app.useGlobalPipes(
     new ValidationPipe({

@@ -4,33 +4,50 @@ import { Logger } from "@nestjs/common/services/logger.service";
 import { BaseRpcExceptionFilter } from "@nestjs/microservices/exceptions/base-rpc-exception-filter";
 import { throwError } from "rxjs/internal/observable/throwError";
 
-import { configKafkaClient } from "../config/relayd.config";
 import { CompressionTypes, Kafka } from "kafkajs";
-import { ETopics } from '../config/relayd.config';
+import { ETopics } from "../config/kafka.config";
+import { getConfigKafkaClient, RelaydKClient } from "./kafka.utils";
 
 @Catch(Error)
 export class RpcExceptionFilterCust extends BaseRpcExceptionFilter {
   
-  private readonly logger = new Logger(RpcExceptionFilterCust.name);
-
-  private static instance: Map<string, RpcExceptionFilterCust>;
+  private static instances: Map<string, RpcExceptionFilterCust>;
 
   static for(instanceId?: string): RpcExceptionFilterCust {
-    const instId: string = instanceId || '-'
-    if (this.instance === undefined)
-      this.instance = new Map();
-    let inst = this.instance.get(instId);
+    const instId: string = instanceId || '*'
+    if (RpcExceptionFilterCust.instances === undefined)
+      RpcExceptionFilterCust.instances = new Map();
+    let inst = RpcExceptionFilterCust.instances.get(instId);
     if (inst == undefined)
       inst = new RpcExceptionFilterCust(instId);
-      this.instance.set(instId, inst);
+      RpcExceptionFilterCust.instances.set(instId, inst);
     return inst;
   }
 
-  private kafka: Kafka = new Kafka(configKafkaClient); 
+  static shutdown(): void {
+    if (RpcExceptionFilterCust.instances)
+      RpcExceptionFilterCust.instances.forEach((filter: RpcExceptionFilterCust, key: string) =>{
+        filter.shutdown();
+      });
+  }
+
+  private readonly logger = new Logger(RpcExceptionFilterCust.name);
+
+  /** Kafka client for sending errors to a dedicated queue */
+  private kafka: Kafka;
 
   constructor(instanceId?: string) {
     super();
+    const configKafkaClient = getConfigKafkaClient(RelaydKClient.ERR+'_'+instanceId);
+    this.kafka = new Kafka(configKafkaClient); 
   }
+
+  async shutdown(): Promise<void> {
+    if (this.kafka) {
+      await this.kafka.consumer().disconnect().catch((error) => this.logger.error('Failed to disconnect kafka consumer\n'+error));
+      await this.kafka.producer().disconnect().catch((error) => this.logger.error('Failed to disconnect kafka producer\n'+error));
+    }
+  } 
 
   catch(exception: any, host: ArgumentsHost): any {
     const ctx = host.switchToRpc();
@@ -48,7 +65,6 @@ export class RpcExceptionFilterCust extends BaseRpcExceptionFilter {
     producer.connect().then(() => {
       producer.send({
         topic: ETopics.ERROR,
-        compression: CompressionTypes.GZIP,
         messages: [{
           key: ctxData.key,
           value: JSON.stringify(errorRecord)
@@ -56,10 +72,10 @@ export class RpcExceptionFilterCust extends BaseRpcExceptionFilter {
       }).then(() => {
         this.logger.warn('Error caught and cast to \''+ETopics.ERROR+'\' with key \''+ctxData.key+'\'\n'+JSON.stringify(errorRecord));
       }).catch((error) => { 
-        this.logger.error('Failed to cast error.\n'+JSON.stringify(errorRecord)+'Error: '+error);
+        this.logger.error('Failed to cast error.\n'+JSON.stringify(errorRecord)+'\n'+error);
       }); 
     }).catch((error) => {
-      this.logger.error('Failed to kConnect to cast error\n'+errorRecord+'\nError: '+error);
+      this.logger.error('Failed to kConnect to cast error\n'+errorRecord+'\n'+error);
     });
     
     return throwError(exception.message);

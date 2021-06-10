@@ -52,7 +52,7 @@ export class HttpExceptionFilterCust implements ExceptionFilter {
     else {
       this.errorComMode = configService.get<string>('ERROR_COM_MODE') || EErrorExt.default;
     }
-    this.logger.log('Errors external communication mode for \''+instanceId+'\': '+this.errorComMode);
+    this.logger.log('External errors communication mode for \''+instanceId+'\': '+this.errorComMode);
   }
 
   catch(exception: any, host: ArgumentsHost): any {

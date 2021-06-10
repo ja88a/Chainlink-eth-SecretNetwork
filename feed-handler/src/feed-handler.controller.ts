@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { Body, Controller, Get, HttpStatus, Logger, Post, UseFilters } from '@nestjs/common';
 import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
 
-import { DataFeedEnableResult, FeedConfig, TMessageType0, VALID_OPT } from '@relayd/common';
+import { RelayActionResult, FeedConfig, VALID_OPT } from '@relayd/common';
 import { HttpExceptionFilterCust, HttpExceptionService } from '@relayd/common';
 
 import { validateOrReject } from 'class-validator';
@@ -27,16 +27,6 @@ export class FeedHandlerController { // implements OnModuleInit
       this.feedHandlerService.shutdown(signal);
   }
 
-  @Get('/relay/test/msg')
-  sendTestMsg(): any {
-    return this.feedHandlerService.sendTestMsg();
-  }
-
-  @MessagePattern('test.send.msg')
-  handleTestMsg(@Payload() message: TMessageType0, @Ctx() context: KafkaContext): any {
-    return this.feedHandlerService.handleTestMsg(message, context);
-  }
-
   /**
    * Add or Enable a price feed by specifying its config. ID must be unique to create a new feed and corresponding oracle data contract.
    * 
@@ -46,7 +36,7 @@ export class FeedHandlerController { // implements OnModuleInit
   // $ curl -d '{"id":"scrtusd", "name":"SCRT/USD price feed", "updateMode":"listen"}' -H "Content-Type: application/json" -X POST http://localhost:3000/relay/feed/price
   @Post('/relay/feed/price')
   @UseFilters(HttpExceptionFilterCust.for())
-  async addFeedPricePair(@Body() feedConfig: FeedConfig): Promise<DataFeedEnableResult> {
+  async addFeedPricePair(@Body() feedConfig: FeedConfig): Promise<RelayActionResult> {
     this.logger.log('Request for adding a new Price Data Feed: ' + feedConfig.id);
     this.logger.debug('Payload:\n' + JSON.stringify(feedConfig));
 

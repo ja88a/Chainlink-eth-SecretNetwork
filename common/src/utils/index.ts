@@ -5,4 +5,16 @@ export {
 
 export {
   RpcExceptionFilterCust,
-} from './rpc.error';
+} from '../kafka/rpc.error';
+
+export {
+  convertContractInputValue,
+  ValueTypeDate,
+  ConversionConfig,
+  ValueType,
+  EthDecimalsPrice,
+}  from './conversion';
+
+export {
+  deepCopyJson,
+} from './misc'

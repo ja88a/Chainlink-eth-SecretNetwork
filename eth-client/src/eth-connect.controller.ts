@@ -31,7 +31,8 @@ export class EthConnectController {
 
   async onApplicationShutdown(signal: string): Promise<void> {
     this.logger.warn('Shutting down ETH Connect on signal ' + signal);
-    if (this.ethConnectService) this.ethConnectService.shutdown(signal);
+    if (this.ethConnectService) await this.ethConnectService.shutdown(signal);
+    RpcExceptionFilterCust.shutdown();
   }
 
   @Get('eth/provider')
@@ -60,6 +61,8 @@ export class EthConnectController {
     // const { headers, offset, timestamp } = originalMessage;
     //this.logger.debug(`Receiving msg on topic '${context.getTopic()}'. Value:\n${JSON.stringify(originalMessage)}`);
 
+    const feedId = message.key.toString();
+
     const contractSource: FeedConfigSource = JSON.parse(JSON.stringify(message.value)); // JSON.parse(message.value.toString())
     //const contractSource: FeedConfigSource = JSON.parse(message.value.toString()); // JSON.parse(message.value.toString())
     this.logger.log(`Received Contract: '${message.value}'\n${JSON.stringify(contractSource)}`);
@@ -69,13 +72,16 @@ export class EthConnectController {
     // 2. Dispatch to the right service for processing
     // 3. Update the topic
 
-    const valid = validate(contractSource)
+    // const valid = validateOrReject(contractSource, VALID_OPT).catch((errors) => {
+    //   throw new RpcException({ input: contractSource, message: 'Input object validation failed', error: errors });
+    // });
+    const validInput = validate(contractSource)
       .then((errorValid) => {
-        this.logger.warn('validation result:\n' + JSON.stringify(errorValid));
+        this.logger.debug('Contract validation result:' + JSON.stringify(errorValid));
         if (errorValid.length > 0) {
           throw new RpcException({
             input: contractSource,
-            message: 'Input contract validation failed',
+            message: 'Input source contract validation failed for ' + feedId,
             error: errorValid,
           });
         }
@@ -83,45 +89,58 @@ export class EthConnectController {
       .catch((error) => {
         throw new RpcException({
           input: contractSource,
-          message: 'Validation of input source Contract failed',
+          message: 'Validation of input source Contract failed for ' + feedId,
           error: error,
         });
         // this.logger.error('VALIDATION ERROR on ' + contractSource + '\n' + error);
       });
 
-    // const valid = validateOrReject(contractSource, VALID_OPT).catch((errors) => {
-    //   throw new RpcException({ input: contractSource, message: 'Input object validation failed', error: errors });
-    // });
-
-    return valid.then(async () => {
+    return validInput.then(async () => {
       try {
+        // Source contract's network compatibility
         const isCompatible = await this.ethConnectService.checkNetworkMatch(contractSource.network);
         if (!isCompatible) {
           const countLasNetworkCompatibilityIssues = this.ethConnectService.countIssueRecentSerie(
             contractSource,
             EContractCastReason.FAILURE_NETWORK_NOT_MATCHING,
           );
+          // TODO Review non-sense number: must consider nb of eth clients available
           if (countLasNetworkCompatibilityIssues < 4) {
-            // TODO Review non-sense number: must consider nb of eth clients available
             this.ethConnectService.castContractConfig(
-              message.key.toString(),
+              feedId,
               contractSource,
               EContractCastReason.FAILURE_NETWORK_NOT_MATCHING,
             );
           } else {
             this.logger.warn(
               "No network match found for source contract of '" +
-                message.key.toString() +
+                feedId +
                 "'. Contract: " +
                 JSON.stringify(contractSource),
             );
           }
         }
-        this.logger.warn('Check out that ETH contract: ' + contractSource.contract);
-        const contractSourceUpd = await this.ethConnectService.handleSourceContract(contractSource);
-        //  return actionRes;
+
+        // Handle the contract config
+        const contractSourceUpd = await this.ethConnectService
+          .handleSourceContract(contractSource)
+          .then((configUpd) => {
+            //this.ethConnectService.castContractConfig(feedId, configUpd, EContractCastReason.SUCCESS_HANDLING);
+            return configUpd;
+          })
+          .catch((error) => {
+            throw new Error('Failed to handle Source Contract for ' + feedId + ' \nError: ' + error);
+          });
+        this.logger.log('ETH Source contract for ' + feedId + ' updated & cast:\n' + JSON.stringify(contractSourceUpd));
       } catch (error) {
-        throw new Error('Failed to process source contract\n' + JSON.stringify(contractSource) + '\nError: ' + error); // this.httpExceptionService.serverError(HttpStatus.INTERNAL_SERVER_ERROR, contractSource, error);
+        throw new Error(
+          'Failed to process source contract for feed ' +
+            feedId +
+            '\n' +
+            JSON.stringify(contractSource) +
+            '\nError: ' +
+            error,
+        );
       }
     });
   }

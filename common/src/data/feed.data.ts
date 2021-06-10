@@ -16,22 +16,16 @@ import {
   IsPositive,
   ArrayMaxSize,
   IsDate,
+  IsDateString,
 } from 'class-validator';
 
-// TODO Remove Temporary struct
-export type TMessageType0 = { id: string, name: string };
-
-class RelayActionResult {
+export class RelayActionResult {
   status: HttpStatus;
   @Length(0, 30)
   message?: string;
   data?: any;
   error?: Error[];
 }
-export class DataFeedEnableResult extends RelayActionResult {
-
-}
-
 
 /** Main Type of Data Feed */
 export enum EFeedDataType {
@@ -128,7 +122,7 @@ export enum EFeedSourceFunction {
  * Specification of the Source data
  */
 export class FeedConfigSourceData {
-  /** Data path to the field value */
+  /** Data path to the field value - Not Supported */
   // TODO source data's path-based extraction support
   @IsOptional()
   @Length(1, 50)
@@ -145,9 +139,12 @@ export class FeedConfigSourceData {
   value?: unknown;
 
   /** Last time the source data value was reported as changed */
+  // TODO Review if moving to more optimal epoch time (number)
   @IsOptional()
-  @IsPositive()
-  time?: number;
+  // @IsPositive()
+  // time?: number;
+  @IsDateString()
+  time?: string;
 
   // TODO Review if timeChecked & timeChanged on source data shall be considered
 }
@@ -174,9 +171,9 @@ export class FeedConfigSource {
   @IsOptional()
   // @IsPositive()
   // @Max(1000)
-  // status?: number = HttpStatus.PARTIAL_CONTENT;
+  // status?: number = HttpStatus.PROCESSING;
   @IsEnum(HttpStatus)
-  status?: HttpStatus = HttpStatus.PARTIAL_CONTENT;
+  status?: HttpStatus = HttpStatus.PROCESSING;
 
   /** Reporting of issues while processing the contract */
   @IsOptional()

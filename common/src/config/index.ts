@@ -17,4 +17,7 @@ export {
 export {
   EErrorExt,
   VALID_OPT,
+  contractDataLastUpdateMaxDays,
+  maxRecast_contractHandlingFail,
+  maxRecast_networkSourceNotMatching,
 } from './relayd.config';

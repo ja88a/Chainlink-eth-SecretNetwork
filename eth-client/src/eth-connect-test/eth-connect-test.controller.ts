@@ -1,7 +1,7 @@
 import { ethers, Event } from 'ethers';
 import { Result } from 'ethers/lib/utils';
 import { Decimals, EthConnectTestService } from './eth-connect-test.service';
-import { HttpExceptionFilterCust, OracleData } from '@relayd/common';
+import { EthDecimalsPrice, HttpExceptionFilterCust, OraclePriceData } from '@relayd/common';
 
 import { Controller, UseFilters } from '@nestjs/common/decorators/core';
 import { Get, Param } from '@nestjs/common/decorators/http';
@@ -63,7 +63,7 @@ export class EthConnectTestController {
     return HttpStatus.OK;
   }
 
-  convertChainlinkAggregatorLatestRoundData(latestRoundData: Result): OracleData {
+  convertChainlinkAggregatorLatestRoundData(latestRoundData: Result): OraclePriceData {
     const priceRaw = latestRoundData['answer'];
     const price = ethers.utils.formatUnits(priceRaw, Decimals.FIAT);
     // price = ethers.utils.commify(price);
@@ -72,6 +72,7 @@ export class EthConnectTestController {
     return {
       value: parseFloat(price),
       time: time,
+      decimals: EthDecimalsPrice.FIAT,
       round: round,
     };
   }

@@ -9,6 +9,11 @@ export class AppService {
 
   getHello(): string {
     this.logger.debug('greetings done');
-    return 'Hello! <br/>Secret Network: ' + this.configService.get<string>('SECRET_CHAIN_ID');
+    return '<html><body><h1>Welcome to <i>relayd</i></h1>' +
+      '<div id="config">' + 
+      'Ethereum Network: ' + this.configService.get<string>('ETH_PROVIDER_NETWORK_ID') + '<br/>' +
+      'Secret Network: ' + this.configService.get<string>('SECRET_CHAIN_ID') + '<br/>' + 
+      '</div>' +
+      '</body></html>';
   }
 }

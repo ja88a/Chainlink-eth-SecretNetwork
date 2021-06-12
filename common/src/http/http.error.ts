@@ -1,27 +1,15 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+// import { Catch } from '@nestjs/common/decorators/core/catch.decorator';
+// import { Injectable } from '@nestjs/common/decorators/core/injectable.decorator';
+// import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
+// import { HttpException } from '@nestjs/common/exceptions/http.exception';
+// import { ExceptionFilter } from '@nestjs/common/interfaces/exceptions/exception-filter.interface';
+// import { ArgumentsHost } from '@nestjs/common/interfaces/features/arguments-host.interface';
+// import { Logger } from '@nestjs/common/services/logger.service';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 
 import { EErrorExt } from '../config/relayd.config';
-
-// @Catch(HttpException)
-// export class HttpExceptionFilter implements ExceptionFilter {
-//   catch(exception: HttpException, host: ArgumentsHost) {
-//     const ctx = host.switchToHttp();
-//     const response = ctx.getResponse<Response>();
-//     const request = ctx.getRequest<Request>();
-//     const status = exception.getStatus();
-
-//     response
-//       .status(status)
-//       .json({
-//         statusCode: status,
-//         timestamp: new Date().toISOString(),
-//         path: request.url,
-//       });
-//   }
-// }
-
 
 @Catch(Error)
 export class HttpExceptionFilterCust implements ExceptionFilter {
@@ -67,7 +55,7 @@ export class HttpExceptionFilterCust implements ExceptionFilter {
       case EErrorExt.STANDARD:
         respStatus = (exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR);
         respBody = {
-          statusCode: status,
+          statusCode: respStatus,
           message: 'Cannot '+request.method+' '+request.path,
           error: exception.name,
         };

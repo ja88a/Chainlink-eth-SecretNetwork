@@ -3,7 +3,7 @@ import { ClientKafka } from "@nestjs/microservices/client/client-kafka";
 import { Admin, ITopicConfig, KafkaConfig } from "@nestjs/microservices/external/kafka.interface";
 import { KafkaOptions } from "@nestjs/microservices/interfaces/microservice-configuration.interface";
 import { KafkaStreamsConfig } from "kafka-streams";
-import { deepCopyJson } from "../utils/misc";
+import { deepCopyJson } from "../utils/misc.utils";
 import { configKafka, configKafkaClient, configKafkaNative, configKafkaTopics, ETopics } from "../config/kafka.config";
 
 export enum RelaydKClient {

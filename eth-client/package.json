@@ -6,6 +6,12 @@
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/types",
+  "watch": {
+    "build:watch": {
+      "extensions" :"ts",
+      "delay": "20000"
+    }
+  },
   "scripts": {
     "build": "nest build",
     "build:watch": "yarn build --watch",

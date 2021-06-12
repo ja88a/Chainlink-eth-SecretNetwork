@@ -1,14 +1,12 @@
 export {
-  OracleData,
-  OraclePriceData,
   ProviderNetwork,
   EContractCastReason,
   EResultFieldLatestRoundData,
-  ContractUpdate,
+  EContractStatus,
+  ContractUpdate
 } from './contract.data';
 
 export {
-  RelayActionResult,
   EFeedDataType,
   EFeedSourceEvent,
   EFeedSourceFunction,
@@ -22,6 +20,7 @@ export {
   FeedConfigData,
   FeedConfigSource,
   FeedConfigSourceData,
+  OraclePriceData,
   FeedConfigTarget,
   FeedConfigTargetData,
   ProcessingIssue

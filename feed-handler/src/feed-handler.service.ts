@@ -1,12 +1,13 @@
+import { ETopics, createTopicsDefault, getKafkaNativeInfo, getConfigKafkaNative, RelaydKClient, getConfigKafka, RelaydKGroup, EContractStatus } from '@relayd/common';
+import { FeedConfig, RelayActionResult } from '@relayd/common';
 import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
+
 import { Injectable, Logger } from '@nestjs/common';
 import { Client, ClientKafka, KafkaContext } from '@nestjs/microservices';
-import { Admin, ITopicConfig, KafkaMessage, Message, ProducerRecord } from 'kafkajs';
+//import { Admin, ITopicConfig, KafkaMessage, Message, ProducerRecord } from 'kafkajs';
 
 import { KafkaStreams, KStream, KTable, KafkaStreamsConfig } from 'kafka-streams';
 
-import { ETopics, createTopicsDefault, getKafkaNativeInfo, getConfigKafkaNative, RelaydKClient, getConfigKafka, RelaydKGroup } from '@relayd/common';
-import { FeedConfig, RelayActionResult } from '@relayd/common';
 import { RecordMetadata } from '@nestjs/microservices/external/kafka.interface';
 
 @Injectable()
@@ -205,7 +206,7 @@ export class FeedHandlerService {
     const feedId = feedConfig.id;
     let feedStream: RelayActionResult = await this.loadFeed(feedId)
       .then((feed) => {
-        this.logger.debug('Loaded feed: '+feed);
+        this.logger.debug('Loaded feed: '+ feed ? JSON.stringify(feed): 'none found with id' + feedId);
         if (feed == null || feed.id == null){
           this.logger.log('Initiate creation of Feed \''+feedId+'\'');
           const dateNow = new Date().toISOString();
@@ -219,13 +220,13 @@ export class FeedHandlerService {
           };
         }
         else if ((Date.now() - Date.parse(feed.dateUpdated) > 5*60*1000) 
-          && (feed.source.status != HttpStatus.OK || feed.target && feed.target.status != HttpStatus.OK)) {
+          && (feed.source.status != EContractStatus.OK || feed.target && feed.target.status != EContractStatus.OK)) {
           this.logger.log('Resume processing of existing Feed \''+feedId+'\'');
           feedConfig.dateUpdated = new Date().toISOString();
           this.castFeedConfig(feedConfig);
           return {
             status: HttpStatus.OK,
-            message: 'Resuming Feed',
+            message: 'Resuming halted Feed',
             data: feedConfig
           };
         } 
@@ -238,7 +239,7 @@ export class FeedHandlerService {
         }
       })
       .catch((error) => { 
-        throw new Error('Failed to check if feed exists\n' + error+'\n'+error.stack);
+        throw new Error('Failed to check if feed exists\n' + error + '\n' + error.stack);
       });
 
     return feedStream;

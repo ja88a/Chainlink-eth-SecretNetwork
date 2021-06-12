@@ -54,7 +54,7 @@ export class RpcExceptionFilterCust extends BaseRpcExceptionFilter {
 
     const ctxData = ctx.getData();
     const context = ctx.getContext();
-    this.logger.debug('Exception\n'+JSON.stringify(exception)+'\n== Context: '+JSON.stringify(context)+'\n== Data: '+JSON.stringify(ctxData));
+    this.logger.debug('Exception\n'+exception+'\n== Context: '+JSON.stringify(context)+'\n== Data: '+JSON.stringify(ctxData));
     
     const errorRecord = {
       context: ctxData,

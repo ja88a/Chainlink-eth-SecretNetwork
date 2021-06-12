@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core/nest-factory';
+import { NestFactory } from '@nestjs/core';
 import { getConfigKafka, RelaydKClient, RelaydKGroup } from '@relayd/common';
 import { FeedHandlerModule } from './feed-handler.module';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';

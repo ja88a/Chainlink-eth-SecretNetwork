@@ -23,7 +23,10 @@ import {
   getConfigKafka,
   RelaydKClient,
   RelaydKGroup,
-  OracleData,
+  FeedConfigSourceData,
+  contractDataLastUpdateMaxDays,
+  deepCopyJson,
+  EContractStatus,
 } from '@relayd/common';
 import { EFeedSourceNetwork, FeedConfigSource, EFeedSourceType } from '@relayd/common';
 
@@ -33,8 +36,7 @@ import { KafkaStreams } from 'kafka-streams';
 
 import { PreconditionFailedException } from '@nestjs/common/exceptions/precondition-failed.exception';
 import { RecordMetadata } from '@nestjs/microservices/external/kafka.interface';
-import { HttpStatus } from '@nestjs/common';
-import { isDate, isDateString, isEthereumAddress, isMilitaryTime, isPositive, validate } from 'class-validator';
+import { isDate, isDateString, isEthereumAddress, isPositive, validate } from 'class-validator';
 
 @Injectable()
 export class EthConnectService {
@@ -160,7 +162,7 @@ export class EthConnectService {
    * @param issueType
    * @returns
    */
-  countIssueRecentSerie(contractSource: FeedConfigSource, issueType: string) {
+  countIssueRecentSerie(contractSource: FeedConfigSource, issueType: string): number {
     let countIssue = 0;
     if (contractSource.issue) {
       contractSource.issue.forEach((issue) => {
@@ -177,15 +179,13 @@ export class EthConnectService {
    * @param contractSource
    * @param reason
    */
-  async castContractConfig(feedConfigId: string, contractSource: FeedConfigSource, reason?: EContractCastReason) {
-    if (contractSource.issue == null) contractSource.issue = [];
-    contractSource.issue.push({ source: 'EthConnect-' + (await this.loadNetworkProviderInfo()).name, value: reason });
-    this.clientKafka
-      .connect()
+  async castContractConfig(topic: ETopics, feedConfigId: string, contractSource: FeedConfigSource, reason?: EContractCastReason, info?: string) {
+    await this.issueContractProcessingNote(contractSource, reason, info);
+    
+    this.clientKafka.connect()
       .then((producer) => {
-        producer
-          .send({
-            topic: ETopics.CONTRACT,
+        producer.send({
+            topic: topic,
             messages: [
               {
                 key: feedConfigId,
@@ -209,54 +209,76 @@ export class EthConnectService {
       });
   }
 
+  private async issueContractProcessingNote(contractSource: FeedConfigSource, reason: EContractCastReason, info: string) {
+    if (contractSource.issue == null)
+      contractSource.issue = [];
+
+    contractSource.issue.unshift({
+      source: RelaydKClient.ETH + '_' + (await this.loadNetworkProviderInfo()).name,
+      value: reason,
+      description: info,
+    });
+  }
+
   /**
    * Process a source contract, depending on its config status
    * @param contractConfig target source contract config to be handled
    * @returns Updated source contract config to reflect any state changes
    */
-  async handleSourceContract(contractConfig: FeedConfigSource): Promise<FeedConfigSource> {
+  async handleSourceContract(contractConfigIni: FeedConfigSource): Promise<FeedConfigSource> {
     this.logger.debug(
-      "Handling contract '" + contractConfig.contract + "' with status '" + contractConfig.status + "'",
+      "Handling contract '" + contractConfigIni.contract + "' with status '" + contractConfigIni.status + "'",
     );
+
+    const contractConfig: FeedConfigSource = deepCopyJson(contractConfigIni);
     switch (contractConfig.status) {
-      case HttpStatus.PROCESSING:
+
+      // New contract source initialization: validation
+      case EContractStatus.INI:
         return this.validateSourceContract(contractConfig)
-          .then((result: OracleData) => {
+          .then((result: FeedConfigSourceData) => {
             return validate(result)
               .then((validationError) => {
                 if (validationError && validationError.length > 0) {
-                  contractConfig.status = HttpStatus.PARTIAL_CONTENT;
-                  this.logger.warn("Contract '" + contractConfig.contract +
-                    "' (" + contractConfig.type + ") is partially Valid. Status: " + contractConfig.status
-                    + '\n' + JSON.stringify(validationError));
+                  // Validation partial / issue(s) met
+                  contractConfig.status = EContractStatus.PARTIAL;
+                  this.issueContractProcessingNote(contractConfig, EContractCastReason.HANDLING_VALIDATION_PARTIAL, JSON.stringify(validationError))
+                  this.logger.warn("Contract '" + contractConfig.contract + "' (" + contractConfig.type
+                    + ") is partially Valid. Status: " + contractConfig.status + '\n' + JSON.stringify(validationError));
                 } else {
-                  contractConfig.status = HttpStatus.OK;
-                  contractConfig.data = {
-                    decimals: result.decimals,
-                    value: result.value,
-                    time: result.time
-                  }
+                  // Validation OK
+                  contractConfig.status = EContractStatus.OK;
+                  if (!contractConfig.data)
+                    contractConfig.data = result;
+                  else
+                    Object.assign(contractConfig.data, result);
                   this.logger.log("Contract '" + contractConfig.contract + "' (" + contractConfig.type +
                     ") is Valid. Status: " + contractConfig.status);
                 }
                 return contractConfig;
               })
-              .catch((error) => {throw new Error('Failed to validate output of \'' + contractConfig.contract + '\' validation\n'+error)});
+              .catch((error) => {
+                throw new Error('Failed to validate output of \'' + contractConfig.contract + '\' validation\n'+error)
+              });
           })
           .catch((error) => {
-            contractConfig.status = HttpStatus.METHOD_NOT_ALLOWED;
-            this.logger.warn('Validation failed for Source Contract ' + contractConfig.contract +
-              '. Status: ' + contractConfig.status + '\n' + error,
-            );
-            return contractConfig;
+            const msg = 'Validation failed for Source Contract ' + contractConfig.contract
+              + '. Status: ' + contractConfig.status + '\n' + error;
+            // contractConfig.status = EContractStatus.FAIL;
+            // this.issueContractProcessingNote(contractConfig, EContractCastReason.HANDLING_FAILED, error);
+            // this.logger.warn(msg);
+            // return contractConfig;
+            throw new Error(msg);
           });
         break;
-      case HttpStatus.OK:
+
+      // Source Contract validated & ready for data polling
+      case EContractStatus.OK:
         this.logger.warn('TODO Activate the contract polling, if not already done');
+        this.pollContractData(contractConfig);
         break;
-      case HttpStatus.NOT_FOUND:
-      case HttpStatus.METHOD_NOT_ALLOWED:
-      case HttpStatus.PARTIAL_CONTENT:
+
+      case EContractStatus.PARTIAL:
       default:
         throw new Error("Status '" + contractConfig.status + "' of Source contract '" +
           contractConfig.contract + "' is not supported",
@@ -265,17 +287,21 @@ export class EthConnectService {
     return contractConfig;
   }
 
+  pollContractData(contractConfig: FeedConfigSource) {
+    throw new Error('Method not implemented: pollContractData');
+  }
+
   /**
    * Check the validity of a source contract, depending on its type
    */
-  async validateSourceContract(contractConfig: FeedConfigSource): Promise<OracleData> {
+  async validateSourceContract(contractConfig: FeedConfigSource): Promise<FeedConfigSourceData> {
     const address = contractConfig.contract;
     if (address == undefined || !isEthereumAddress(address)) throw new Error('Contract address is invalid: ' + address);
 
     const contractType = contractConfig.type;
     this.logger.debug("Validating contract '" + address + "' of type '" + contractType + "' with status '" + contractConfig.status);
 
-    const pendingCheck: Promise<OracleData>[] = [];
+    const pendingCheck: Promise<FeedConfigSourceData>[] = [];
 
     if (contractType == EFeedSourceType.CL_AGGR || contractType == EFeedSourceType.CL_AGGR_PROX) {
       const contract: Contract = this.initContractClAggregator(address);
@@ -292,11 +318,8 @@ export class EthConnectService {
         const checkAggregatorProxy = this.loadClProxyContractAggregator(contract)
           .then((contractAggr: Contract) => {
             return this.loadContractLatestRoundData(contractAggr, convertOpts, true)
-              .then((result: OracleData) => {
-                return result;
-              })
               .catch((error) => {
-                throw new Error("Failed to fetch latestRoundData for ClAggregator '" + contractAggr.address +
+                throw new Error("Failed to fetch latestRoundData for sub-ClAggregator '" + contractAggr.address +
                   "' of '" + address + "' (" + contractType + ')\n' + error);
               });
             // TODO check that events are available/emitted
@@ -310,11 +333,12 @@ export class EthConnectService {
       }
 
       const checkAggregator = this.loadContractLatestRoundData(contract, convertOpts, true)
-        .then((result: OracleData) => {
+        .then((result: FeedConfigSourceData) => {
+          result.decimals = contractDecimals;
           return result;
         })
         .catch((error) => {
-          throw new Error('Failed to validate latestRoundData for ' + address + ' (' + contractType + ')\n' + error);
+          throw new Error('Failed to validate latestRoundData for \'' + address + '\' (' + contractType + ')\n' + error);
         });
       pendingCheck.push(checkAggregator);
     } else {
@@ -322,10 +346,10 @@ export class EthConnectService {
     }
 
     return Promise.all(pendingCheck)
-      .then((validResult: OracleData[]) => {
-        const aggrRes: OracleData = {value: -1, time: ''};
+      .then((validResult: FeedConfigSourceData[]) => {
+        const aggrRes: FeedConfigSourceData = { value: -1, time: ''};
         validResult.forEach((result) => {
-          Object.assign(result, aggrRes);
+          Object.assign(aggrRes, result);
         });
         this.logger.debug('Aggregated oracle data result: '+JSON.stringify(aggrRes));
         return aggrRes;
@@ -344,8 +368,11 @@ export class EthConnectService {
     return contract.functions
       .decimals()
       .then((result) => {
-        this.logger.debug('Decimals for ' + contract.address + ': ' + result);
-        return result;
+        const decimals: number = +result[0];
+        this.logger.debug('Decimals for ' + contract.address + ': ' + decimals);
+        if (!isPositive(decimals))
+          throw new Error('Invalid decimals \''+decimals+'\' in contract \''+contract.address+'\'');
+        return decimals;
       })
       .catch((error) => {
         throw new Error('Failed to fetch decimals for ' + contract.address + '\n' + error);
@@ -407,7 +434,7 @@ export class EthConnectService {
     contract: Contract,
     convertOpts?: ConversionConfig,
     validate?: boolean,
-  ): Promise<OracleData> {
+  ): Promise<FeedConfigSourceData> {
     this.logger.debug("Fetching latestRoundData of '" + contract.address + "'");
     return contract.functions
       .latestRoundData()
@@ -421,20 +448,28 @@ export class EthConnectService {
         this.logger.debug('Value retrieved from ' + contract.address + ": '" +
           lastValue + ' / ' + lastValueRaw + "' ("+typeof lastValue+") updated at " + lastValueTime + ' / ' + lastValueTimeRaw+ ' ('+typeof lastValueTime+')');
         
+        // Validate the value's value
         if (validate && !isPositive(lastValue)) {
           throw new Error("Invalid value for field '" + EResultFieldLatestRoundData.VALUE +
             "' from contract '" + contract.address + "' latestRoundData: " + lastValue + ' / ' + lastValueRaw,
           );
         }
+
+        // Validate the last update date
         if (validate && !(isDateString(lastValueTime) || isDate(lastValueTime))) {
           throw new Error('Invalid value for field \'' + EResultFieldLatestRoundData.UPDATE_TIME +
             '\' from contract \'' + contract.address + '\' latestRoundData: ' + lastValueTime + ' / ' + lastValueTimeRaw,
           );
         }
+        const dateLastUpdate: number = new Date(lastValueTime).valueOf();
+        const dateNow: number = Date.now();
+        if (validate && dateLastUpdate < dateNow - contractDataLastUpdateMaxDays*24*60*60*1000) {
+          throw new Error('Last data update is older than '+contractDataLastUpdateMaxDays+' days: '+lastValueTime+'. Contract considered as stall');
+        } 
+        
         return {
           value: lastValue,
-          time: lastValueTime,
-          decimals: convertOpts.decimals,
+          time: lastValueTime
         };
       })
       .catch((error) => {

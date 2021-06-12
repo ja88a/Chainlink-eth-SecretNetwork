@@ -1,6 +1,4 @@
-import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
 import { Type } from 'class-transformer';
-//import { Type } from 'class-transformer/types/decorators';
 import {
   Length,
   IsEnum,
@@ -17,15 +15,9 @@ import {
   ArrayMaxSize,
   IsDate,
   IsDateString,
+  IsNumber,
 } from 'class-validator';
-
-export class RelayActionResult {
-  status: HttpStatus;
-  @Length(0, 30)
-  message?: string;
-  data?: any;
-  error?: Error[];
-}
+import { EContractStatus } from './contract.data';
 
 /** Main Type of Data Feed */
 export enum EFeedDataType {
@@ -149,6 +141,24 @@ export class FeedConfigSourceData {
   // TODO Review if timeChecked & timeChanged on source data shall be considered
 }
 
+/**
+ * @deprecated use FeedConfigSourceData instead 
+ */
+ export class OraclePriceData extends FeedConfigSourceData {
+  @IsNumber()
+  value: number = 0;
+
+  @IsPositive()
+  @Max(30)
+  decimals: number;
+
+  @IsDateString()
+  time: string; // ISO date & time OR epoch number?
+
+  @IsOptional()
+  round?: number;  
+};
+
 export class ProcessingIssue {
   @IsDefined()
   @Length(3, 40)
@@ -169,11 +179,8 @@ export class ProcessingIssue {
 export class FeedConfigSource {
   /** Source status, in terms of access to its functions and data */
   @IsOptional()
-  // @IsPositive()
-  // @Max(1000)
-  // status?: number = HttpStatus.PROCESSING;
-  @IsEnum(HttpStatus)
-  status?: HttpStatus = HttpStatus.PROCESSING;
+  @IsEnum(EContractStatus)
+  status?: EContractStatus = EContractStatus.INI;
 
   /** Reporting of issues while processing the contract */
   @IsOptional()
@@ -241,7 +248,7 @@ export class FeedConfigSource {
 
   /** The source contract's data info */
 //  @IsOptional()
-  @ValidateIf(o => o.status == HttpStatus.OK)
+  @ValidateIf(o => o.status == EContractStatus.OK)
   @ValidateNested()
   @Type(() => FeedConfigSourceData)
   data?: FeedConfigSourceData;
@@ -292,8 +299,8 @@ export class FeedConfigTargetData {
 export class FeedConfigTarget {
   /** Target status, in terms of access to its functions and data */
   @IsOptional()
-  @IsEnum(HttpStatus)
-  status?: HttpStatus = HttpStatus.NOT_FOUND;
+  @IsEnum(EContractStatus)
+  status?: EContractStatus = EContractStatus.INI;
   
   /** Target contract address */
   @IsOptional()
@@ -309,7 +316,7 @@ export class FeedConfigTarget {
   // TODO If feed owner undefined, use feed creator's default oracle group
   // TODO Support for a Group to be feed & contract owner, its members are granted handlers
   @IsOptional()
-  @ValidateIf(o => o.status === HttpStatus.OK)
+  @ValidateIf(o => o.status === EContractStatus.OK)
   @Length(44, 46)
   @Contains('secret')
   owner?: string;
@@ -331,7 +338,7 @@ export class FeedConfigTarget {
 
   /** The target contract data info and values */
 //  @IsOptional()
-  @ValidateIf(o => o.status === HttpStatus.OK)
+  @ValidateIf(o => o.status === EContractStatus.OK)
   @ValidateNested()
   @Type(() => FeedConfigTargetData)
   data?: FeedConfigTargetData;

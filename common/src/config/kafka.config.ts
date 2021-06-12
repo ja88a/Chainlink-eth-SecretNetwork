@@ -125,7 +125,7 @@ export enum ETopics {
   ERROR = 'relayd.error',
   FEED = 'relayd.feed',
   CONTRACT = 'relayd.contract',
-  CONTRACT_DATA = 'relayd.contract'
+  CONTRACT_DATA = 'relayd.contract-data'
 }
 
 export type ETopicConfig = {

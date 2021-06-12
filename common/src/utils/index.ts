@@ -1,13 +1,4 @@
 export {
-  HttpExceptionFilterCust,
-  HttpExceptionService,
-} from './http.error';
-
-export {
-  RpcExceptionFilterCust,
-} from '../kafka/rpc.error';
-
-export {
   convertContractInputValue,
   ValueTypeDate,
   ConversionConfig,
@@ -17,4 +8,4 @@ export {
 
 export {
   deepCopyJson,
-} from './misc'
+} from './misc.utils'

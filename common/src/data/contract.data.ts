@@ -1,41 +1,12 @@
+import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
 import {
   Length,
   IsDefined,
   IsEthereumAddress,
   Contains,
   ValidateIf,
-  IsPositive,
   IsDateString,
-  IsOptional,
-  IsNumber,
-  Max,
   } from 'class-validator';
-
-export class OracleData {
-  @IsDefined()
-  value: any;
-
-  @IsDateString()
-  time: string; // ISO date & time OR epoch number?
-
-  @IsOptional()
-  @IsNumber()
-  round?: number = 0;
-
-  @IsOptional()
-  @IsPositive()
-  @Max(30)
-  decimals?: number;
-};
-
-export class OraclePriceData extends OracleData {
-  @IsNumber()
-  value: number = 0;
-
-  @IsPositive()
-  @Max(30)
-  decimals: number;
-};
 
 export class ProviderNetwork {
   name: string;
@@ -44,9 +15,19 @@ export class ProviderNetwork {
 };
 
 export enum EContractCastReason {
-  SUCCESS_HANDLING = 'success.contract.handling',
+  HANDLING_SUCCESS = 'contract.handling.success',
+  HANDLING_FAILED = 'contract.handling.fail',
   FAILURE_NETWORK_NOT_MATCHING = 'failure.network.incompatible',
+  HANDLING_VALIDATION_PARTIAL = 'contract.handling.valid.partial',
 } 
+
+/** Supported contract statuses */
+export enum EContractStatus {
+  INI = HttpStatus.CONTINUE,
+  OK = HttpStatus.OK,
+  PARTIAL = HttpStatus.PARTIAL_CONTENT,
+  FAIL = HttpStatus.METHOD_NOT_ALLOWED
+}
 
 //  latestRoundData() returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
 export enum EResultFieldLatestRoundData {

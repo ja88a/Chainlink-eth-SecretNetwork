@@ -19,6 +19,7 @@ export enum EContractCastReason {
   HANDLING_FAILED = 'contract.handling.fail',
   FAILURE_NETWORK_NOT_MATCHING = 'failure.network.incompatible',
   HANDLING_VALIDATION_PARTIAL = 'contract.handling.valid.partial',
+  HANDLING_VALIDATION_FAIL = 'contract.handling.invalid',
 } 
 
 /** Supported contract statuses */

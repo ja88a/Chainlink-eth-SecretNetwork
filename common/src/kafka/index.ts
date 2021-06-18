@@ -1,5 +1,6 @@
 export {
   RpcExceptionFilterCust,
+  EErrorType,
 } from './rpc.error';
 
 export {

@@ -8,6 +8,13 @@ import { CompressionTypes, Kafka } from "kafkajs";
 import { ETopics } from "../config/kafka.config";
 import { getConfigKafkaClient, RelaydKClient } from "./kafka.utils";
 
+export enum EErrorType {
+  CONTRACT_CONFIG_NETWORK_NOSUPPORT = 'contract.config.handling.network.nosupport',
+  CONTRACT_CONFIG_INVALID = 'contract.config.invalid',
+  CONTRACT_CONFIG_HANDLING_FAIL = 'contract.config.handling.failure',
+  CONTRACT_CONFIG_GENERAL_FAIL = 'contract.config.handling.failure',
+}
+
 @Catch(Error)
 export class RpcExceptionFilterCust extends BaseRpcExceptionFilter {
   

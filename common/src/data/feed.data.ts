@@ -128,7 +128,8 @@ export class FeedConfigSourceData {
 
   /** Last seen source data value */
   @IsOptional()
-  value?: unknown;
+//  @IsNumber()
+  value?: any; //number;
 
   /** Last time the source data value was reported as changed */
   // TODO Review if moving to more optimal epoch time (number)
@@ -200,6 +201,7 @@ export class FeedConfigSource {
   @IsDefined()
   //@ValidateIf(o => o.network === EFeedSourceNetwork.ETH_MAIN || o.network === EFeedSourceNetwork.ETH_TEST)
   @IsEthereumAddress()
+  @Length(41,43)
   contract: string;
 
   /** Type of the source contract */
@@ -247,8 +249,8 @@ export class FeedConfigSource {
   notif?: EFeedSourceNotifOn = EFeedSourceNotifOn.default;
 
   /** The source contract's data info */
-//  @IsOptional()
-  @ValidateIf(o => o.status == EContractStatus.OK)
+  @IsOptional()
+  //@ValidateIf(o => o.status == EContractStatus.OK)
   @ValidateNested()
   @Type(() => FeedConfigSourceData)
   data?: FeedConfigSourceData;

@@ -27,6 +27,7 @@ import {
   contractDataLastUpdateMaxDays,
   deepCopyJson,
   EContractStatus,
+  VALID_OPT,
 } from '@relayd/common';
 import { EFeedSourceNetwork, FeedConfigSource, EFeedSourceType } from '@relayd/common';
 
@@ -62,7 +63,7 @@ export class EthConnectService {
 
     getKafkaNativeInfo(this.logger);
 
-    await createTopicsDefault(this.clientKafka, this.logger);
+    //await createTopicsDefault(this.clientKafka, this.logger);
 
     // this.streamFactory = new KafkaStreams(configKafkaNative);
     // this.initStreams();
@@ -179,12 +180,14 @@ export class EthConnectService {
    * @param contractSource
    * @param reason
    */
-  async castContractConfig(topic: ETopics, feedConfigId: string, contractSource: FeedConfigSource, reason?: EContractCastReason, info?: string) {
+  async castContractConfig(topic: ETopics, feedConfigId: string, 
+    contractSource: FeedConfigSource, reason?: EContractCastReason, info?: string
+    ): Promise<RecordMetadata[] | Error> {
     await this.issueContractProcessingNote(contractSource, reason, info);
     
-    this.clientKafka.connect()
+    return this.clientKafka.connect()
       .then((producer) => {
-        producer.send({
+        return producer.send({
             topic: topic,
             messages: [
               {
@@ -197,15 +200,14 @@ export class EthConnectService {
             recordMetadata.forEach((element) => {
               this.logger.debug('Sent Contract record metadata: ' + JSON.stringify(element));
             });
+            return recordMetadata;
           })
           .catch((error) => {
-            throw new Error(
-              "Failed to cast Contract config '" + contractSource.contract + "' for '" + feedConfigId + "'\n" + error,
-            );
+            return new Error("Failed to cast Contract config '" + contractSource?.contract + "' update for '" + feedConfigId + "' ("+reason + ": "+ info +") on '"+topic+"'\n" + error);
           });
       })
       .catch((error: Error) => {
-        throw new Error('Failed kafka client connection.\n' + error);
+        return new Error('Failed castContractConfig connection for contract \''+contractSource?.contract+' of feed \''+feedConfigId+'\' (' + reason + ': '+ info +') on \''+topic+'\'\n' + error);
       });
   }
 
@@ -225,7 +227,7 @@ export class EthConnectService {
    * @param contractConfig target source contract config to be handled
    * @returns Updated source contract config to reflect any state changes
    */
-  async handleSourceContract(contractConfigIni: FeedConfigSource): Promise<FeedConfigSource> {
+  async handleSourceContract(contractConfigIni: FeedConfigSource): Promise<FeedConfigSource | Error> {
     this.logger.debug(
       "Handling contract '" + contractConfigIni.contract + "' with status '" + contractConfigIni.status + "'",
     );
@@ -236,8 +238,12 @@ export class EthConnectService {
       // New contract source initialization: validation
       case EContractStatus.INI:
         return this.validateSourceContract(contractConfig)
-          .then((result: FeedConfigSourceData) => {
-            return validate(result)
+          .then((result) => {
+
+            if (result instanceof Error)
+              throw result;
+            
+            return validate(result) // TODO Fix the validation issue on contract config, VALID_OPT
               .then((validationError) => {
                 if (validationError && validationError.length > 0) {
                   // Validation partial / issue(s) met
@@ -258,7 +264,7 @@ export class EthConnectService {
                 return contractConfig;
               })
               .catch((error) => {
-                throw new Error('Failed to validate output of \'' + contractConfig.contract + '\' validation\n'+error)
+                return new Error('Failed to validate output of \'' + contractConfig.contract + '\' validation\n'+error)
               });
           })
           .catch((error) => {
@@ -268,7 +274,7 @@ export class EthConnectService {
             // this.issueContractProcessingNote(contractConfig, EContractCastReason.HANDLING_FAILED, error);
             // this.logger.warn(msg);
             // return contractConfig;
-            throw new Error(msg);
+            return new Error(msg);
           });
         break;
 
@@ -289,19 +295,20 @@ export class EthConnectService {
 
   pollContractData(contractConfig: FeedConfigSource) {
     throw new Error('Method not implemented: pollContractData');
+    //return contractConfig;
   }
 
   /**
    * Check the validity of a source contract, depending on its type
    */
-  async validateSourceContract(contractConfig: FeedConfigSource): Promise<FeedConfigSourceData> {
+  async validateSourceContract(contractConfig: FeedConfigSource): Promise<FeedConfigSourceData | Error> {
     const address = contractConfig.contract;
     if (address == undefined || !isEthereumAddress(address)) throw new Error('Contract address is invalid: ' + address);
 
     const contractType = contractConfig.type;
     this.logger.debug("Validating contract '" + address + "' of type '" + contractType + "' with status '" + contractConfig.status);
 
-    const pendingCheck: Promise<FeedConfigSourceData>[] = [];
+    const pendingCheck: Promise<FeedConfigSourceData | Error>[] = [];
 
     if (contractType == EFeedSourceType.CL_AGGR || contractType == EFeedSourceType.CL_AGGR_PROX) {
       const contract: Contract = this.initContractClAggregator(address);
@@ -319,16 +326,15 @@ export class EthConnectService {
           .then((contractAggr: Contract) => {
             return this.loadContractLatestRoundData(contractAggr, convertOpts, true)
               .catch((error) => {
-                throw new Error("Failed to fetch latestRoundData for sub-ClAggregator '" + contractAggr.address +
+                return new Error("Failed to fetch latestRoundData for sub-ClAggregator '" + contractAggr.address +
                   "' of '" + address + "' (" + contractType + ')\n' + error);
               });
             // TODO check that events are available/emitted
           })
           .catch((error) => {
-            throw new Error(
-              "Failed to validate Aggregator of contract '" + address + "' (" + contractType + ')\n' + error,
-            );
+            return new Error("Failed to validate Aggregator of contract '" + address + "' (" + contractType + ')\n' + error);
           });
+        
         pendingCheck.push(checkAggregatorProxy);
       }
 
@@ -338,24 +344,29 @@ export class EthConnectService {
           return result;
         })
         .catch((error) => {
-          throw new Error('Failed to validate latestRoundData for \'' + address + '\' (' + contractType + ')\n' + error);
+          return new Error('Failed to validate latestRoundData for \'' + address + '\' (' + contractType + ')\n' + error);
         });
+
       pendingCheck.push(checkAggregator);
-    } else {
+
+    } 
+    else {
       throw new Error('Unsupported type of contract: ' + contractType);
     }
 
     return Promise.all(pendingCheck)
-      .then((validResult: FeedConfigSourceData[]) => {
+      .then((validResult) => {
         const aggrRes: FeedConfigSourceData = { value: -1, time: ''};
         validResult.forEach((result) => {
+          if (result instanceof Error)
+            throw result;
           Object.assign(aggrRes, result);
         });
         this.logger.debug('Aggregated oracle data result: '+JSON.stringify(aggrRes));
         return aggrRes;
       })
       .catch((error) => {
-        throw new Error('Failed to validate source contract\n' + JSON.stringify(contractConfig) + '\n' + error);
+        return Error('Failed to validate source contract\n' + JSON.stringify(contractConfig) + '\n' + error);
       });
   }
 

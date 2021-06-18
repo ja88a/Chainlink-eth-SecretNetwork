@@ -6,7 +6,7 @@ export {
   // configKafkaProducer,
   configKafkaTopics,
   ETopics,
-  ETopicConfig,
+  ITopicConfig,
 } from './kafka.config';
 
 export {

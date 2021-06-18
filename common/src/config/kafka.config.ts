@@ -1,5 +1,5 @@
 import { Transport } from "@nestjs/microservices/enums/transport.enum";
-import { ConsumerConfig, KafkaConfig, ProducerConfig } from "@nestjs/microservices/external/kafka.interface";
+import { CompressionTypes, ConsumerConfig, KafkaConfig, ProducerConfig } from "@nestjs/microservices/external/kafka.interface";
 import { KafkaOptions } from "@nestjs/microservices/interfaces/microservice-configuration.interface";
 import { KafkaStreamsConfig } from "kafka-streams";
 
@@ -81,7 +81,7 @@ export const configKafkaNative: KafkaStreamsConfig = {
     'group.id': KAFKA_GROUP_ID,
     'client.id': KAFKA_CLIENT_ID,
     'event_cb': true,
-    'compression.codec': 'snappy',
+    'compression.codec': 'none', // TODO PROD default compression: none, gzip, snappy, lz4
     'api.version.request': true,
 
     'socket.keepalive.enable': true,
@@ -125,10 +125,11 @@ export enum ETopics {
   ERROR = 'relayd.error',
   FEED = 'relayd.feed',
   CONTRACT = 'relayd.contract',
-  CONTRACT_DATA = 'relayd.contract-data'
+  CONTRACT_CONFIG = 'relayd.contract.config',
+  CONTRACT_DATA = 'relayd.contract.data'
 }
 
-export type ETopicConfig = {
+export type ITopicConfig = {
   name: string;
   numPartitions?: number;
   replicationFactor?: number;
@@ -137,13 +138,11 @@ export type ETopicConfig = {
 /**
  * Configuration of messaging topics / channels
  */
-// export const configKafkaTopics: Map<String, ETopicConfig> = new Map();
-// configKafkaTopics.set(ETopics.FEED, {name: 'relayd.feed', numPartitions: 1, replicationFactor:1});
-// configKafkaTopics.set(ETopics.CONTRACT, {name: 'elayd.contract', numPartitions: 1, replicationFactor:1});
-export const configKafkaTopics: Map<String, ETopicConfig> = new Map([
+export const configKafkaTopics: Map<String, ITopicConfig> = new Map([
   [ETopics.ERROR, { name: ETopics.ERROR, numPartitions: 1, replicationFactor: 1 }],
   [ETopics.FEED, { name: ETopics.FEED, numPartitions: 1, replicationFactor: 1 }],
   [ETopics.CONTRACT, { name: ETopics.CONTRACT, numPartitions: 1, replicationFactor: 1 }],
+  [ETopics.CONTRACT_CONFIG, { name: ETopics.CONTRACT_CONFIG, numPartitions: 1, replicationFactor: 1 }],
   [ETopics.CONTRACT_DATA, { name: ETopics.CONTRACT_DATA, numPartitions: 1, replicationFactor: 1 }],
 ]);
 

@@ -36,24 +36,24 @@ export class FeedHandlerService {
 
     getKafkaNativeInfo(this.logger);
 
-    await createTopicsDefault(this.clientKafka, this.logger).catch((error) => this.logger.error('Failed to create default topics from FeedHandler\n'+error));
+    await createTopicsDefault(this.clientKafka, this.logger).catch((error) => this.logger.error('Failed to create default topics from FeedHandler\n' + error));
 
     const configKafkaNative = getConfigKafkaNative(RelaydKClient.FEED_STREAM, RelaydKClient.FEED);
     this.streamFactory = new KafkaStreams(configKafkaNative);
     this.initStreams();
   }
 
-  async shutdown(signal:string) {
-    this.logger.debug('Shutting down Feed service on signal '+signal);
+  async shutdown(signal: string) {
+    this.logger.debug('Shutting down Feed service on signal ' + signal);
     if (this.streamFactory)
       await this.streamFactory.closeAll()
-        .then((results) => {this.logger.debug("Feed streams closed. "+results)})
-        .catch((error) => {throw new Error('Unexpected closure of Feed streams\nError: '+error)});
+        .then((results) => { this.logger.debug("Feed streams closed. " + results) })
+        .catch((error) => { throw new Error('Unexpected closure of Feed streams\nError: ' + error) });
     if (this.clientKafka)
       await this.clientKafka.close()
-        .then(() => {this.logger.debug("Feed client closed.")})
-        .catch((error) => {throw new Error('Unexpected closure of Feed client\nError: '+error)});
-  } 
+        .then(() => { this.logger.debug("Feed client closed.") })
+        .catch((error) => { throw new Error('Unexpected closure of Feed client\nError: ' + error) });
+  }
 
   // =======================================================================
   // -- Core
@@ -73,15 +73,15 @@ export class FeedHandlerService {
     ]).then(() => {
       this.logger.log('Feed Stream & Table successfully started');
       setTimeout(() => {
-//        this.initKTableFeed();
+        //        this.initKTableFeed();
         // this.feedTable.merge(this.contractStream)
         //   .then((merged) => merged.to(ETopics.FEED))
         //   .catch((error) => this.logger.error('TRY AGAIN\n'+error) )
-//        this.initKTableMergedFeedContractConfig();
+        //        this.initKTableMergedFeedContractConfig();
         //this.testKTableMergedFeedConfig();
       }, 1000);
-    }).catch((error) => { 
-      this.logger.error(new Error('Failed to init Streams\n' + error)); 
+    }).catch((error) => {
+      this.logger.error(new Error('Failed to init Streams\n' + error));
     });
   }
 
@@ -92,22 +92,22 @@ export class FeedHandlerService {
     }, 10000);
   }
 
-//  async initKTableMergedFeedContractConfig(): Promise<void> {
-    // return this.feedTable
-    //   .merge(this.streamFactory.getKStream(ETopics.CONTRACT+'.config'))
+  //  async initKTableMergedFeedContractConfig(): Promise<void> {
+  // return this.feedTable
+  //   .merge(this.streamFactory.getKStream(ETopics.CONTRACT+'.config'))
 
-//  }
+  //  }
 
   async initKTableMergedFeedContractConfig(): Promise<void> {
     return this.feedTable
-      .merge(this.streamFactory.getKStream(ETopics.CONTRACT+'.config'))
+      .merge(this.streamFactory.getKStream(ETopics.CONTRACT + '.config'))
       .then((merged: KTable) => {
         //this.logger.debug('Init kTable merged feed and contract\n'+JSON.stringify(merged));
 
         merged.consumeUntilMs(1000, () => {
           let count = 0;
           merged.forEach((row) => {
-            this.logger.warn('Merged kTable Feed&Contract config '+ count++ + '\n' + row);
+            this.logger.warn('Merged kTable Feed&Contract config ' + count++ + '\n' + row);
           });
         });
 
@@ -134,7 +134,7 @@ export class FeedHandlerService {
     const topicStream: KStream = this.streamFactory.getKStream(topicName);
 
     topicStream
-//      .merge(this.contractStream)
+      //      .merge(this.contractStream)
       .forEach(message => {
         this.logger.debug('Record msg on stream \'' + topicName + '\': '
           + '\nKey: ' + (message.key ? message.key.toString('utf8') : '-')
@@ -197,7 +197,7 @@ export class FeedHandlerService {
             source: message.value,
           },
         }
-        this.logger.debug('Contract config reworked\n'+JSON.stringify(contractConfigRecord));
+        this.logger.debug('Contract config reworked\n' + JSON.stringify(contractConfigRecord));
         return contractConfigRecord;
       })
       .to(ETopics.CONTRACT_CONFIG, 'auto', 'buffer');
@@ -219,28 +219,43 @@ export class FeedHandlerService {
   }
 
   mergeContractConfigToFeedConfig() {
-    const contractConfigTopic = ETopics.CONTRACT_CONFIG;
+    const contractConfigTopic = ETopics.CONTRACT_CONFIG; // TODO Change to ETopics.CONTRACT? or rename to Source contract?
     const contractConfigStream: KStream = this.streamFactory.getKStream(contractConfigTopic);
 
     contractConfigStream
       .mapJSONConvenience()
       .forEach((contractConfigRecord) => {
         const feedId = contractConfigRecord.key?.toString('utf8');
+        const contractConfig = contractConfigRecord.value.source;
         if (!feedId)
-          throw new Error('Contract config record on \''+contractConfigTopic+'\' has no key / feed ID\n'+JSON.stringify(contractConfigRecord));
-        this.feedTable.getStorage().get(feedId)
+          throw new Error('Contract config record on \'' + contractConfigTopic + '\' has no feed ID key\n' + JSON.stringify(contractConfigRecord));
+        const feedConfigMerged = this.loadFeedFromTable(feedId)//, FeedConfig) //; this.feedTable.getStorage().get(feedId)
           .then((feedConfig) => {
-            if (!feedConfig) {
-              this.logger.warn('No feed with ID \''+feedId+'\' found in kTable');
-              return;
+            if (!feedConfig || feedConfig instanceof Error)
+              throw new Error('No target feed config \'' + feedConfig + '\' found for merging contract \''+contractConfig.contract+'\'');
+            
+            this.logger.debug('Merging\nContract:\n'+JSON.stringify(contractConfig)+'\nin Feed:\n'+JSON.stringify(feedConfig));
+            feedConfig.source = contractConfig;
+            const feedConfigMsg = {
+              key: feedId,
+              value: feedConfig
             }
-            this.logger.log('Found feedConfig out of kTable storage\n'+JSON.stringify(feedConfig));
+            this.feedStream.writeToStream(feedConfigMsg);
+            //this.logger.debug('Merged source contract \'' + contractConfig.contract + '\' to feed \'' + feedId + '\'');
+            return feedConfigMsg;
           })
           .catch((error) => {
-            this.logger.warn('Failed to look for feed with ID \''+feedId+'\'\n'+error);
+            return new Error('Failed to merge contract \'' + contractConfig?.contract + '\' to feed \'' + feedId + '\'\n' + error);
           });
+
+        if (feedConfigMerged instanceof Error)
+          throw feedConfigMerged;
+        this.logger.debug('Merged source contract \'' + contractConfig.contract + '\' to feed \'' + feedId + '\'\n'+JSON.stringify(feedConfigMerged));
+      })
+      .catch((error) => {
+        this.logger.error('Failed to merge source contract with its feed config\n' + error);
       });
-    
+
     return contractConfigStream.start(
       () => { // kafka success callback
         this.logger.debug('kStream on \'' + contractConfigTopic + '\' for merging configs ready. Started');
@@ -260,7 +275,7 @@ export class FeedHandlerService {
     this.logger.debug('Creating kTable  for \'' + topicName + '\'');
     const keyMapperEtl = message => {
       const feedConfig = JSON.parse(message.value.toString());
-      this.logger.debug(topicName+' kTable \''+topicName+'\' entry\n' + JSON.stringify(feedConfig));
+      this.logger.debug(topicName + ' kTable \'' + topicName + '\' entry\n' + JSON.stringify(feedConfig));
       return {
         key: feedConfig.id, // message.key && message.key.toString(),
         value: feedConfig
@@ -268,9 +283,9 @@ export class FeedHandlerService {
     };
 
     const topicTable: KTable = this.streamFactory.getKTable(topicName, keyMapperEtl, null);
-    
+
     //topicTable.merge(this.contractStream);
-    
+
     // topicTable.consumeUntilMs(10000, () => { 
     //   this.logger.debug('kTable snapshot of \'' + topicName + '\' taken. Value:\n'+JSON.stringify(topicTable.getStorage()));
 
@@ -283,11 +298,11 @@ export class FeedHandlerService {
 
     //const outputStreamConfig: KafkaStreamsConfig = null;
     return topicTable.start(
-      () => { 
+      () => {
         this.logger.debug('kTable  on \'' + topicName + '\' ready. Started');
-        this.feedTable = topicTable; 
+        this.feedTable = topicTable;
       },
-      (error) => { 
+      (error) => {
         //this.logger.error('Failed to start kTable for \'' + topicName + '\'\n' + error);
         throw new Error('Failed to init kTable for \'' + topicName + '\'\n' + error);
       },
@@ -296,58 +311,85 @@ export class FeedHandlerService {
     );
   }
 
-  async loadFeed(feedConfigId: string): Promise<FeedConfig> {
-    this.logger.debug('Request for loading feed \''+feedConfigId+'\' from kTable');
-    const feedKTable: KTable = this.feedTable;
-    const queryResult = feedKTable.getStorage().get(feedConfigId);
-    // this.logger.debug('Table get('+feedConfigId+'): '+queryResult+': '+JSON.stringify(queryResult));
-
-    const feedConfig = queryResult.then((result) => {
-      return result;
-    }).catch((error) => {
-      throw new Error('Failed to extract feed \''+feedConfigId+'\' from kTable.\nError: '+error);
-    });
-    return feedConfig;
+  async loadFeedFromTable(keyId: string, kTable: KTable = this.feedTable, entityName: string = 'feed config'): Promise<FeedConfig | Error> {
+    this.logger.debug('Request for loading ' + entityName + ' \'' + keyId + '\' from kTable');
+    return kTable.getStorage().get(keyId)
+      .then((feedConfig) => {
+        if (!feedConfig) {
+          this.logger.warn('No ' + entityName + ' \'' + keyId + '\' found in kTable');
+          return undefined;
+        }
+        this.logger.debug('Found ' + entityName + ' \'' + keyId + '\' out of kTable storage\n' + JSON.stringify(feedConfig));
+        return feedConfig;
+      })
+      .catch((error) => {
+        return new Error('Failed to extract ' + entityName + ' \'' + keyId + '\' from kTable.\nError: ' + error);
+      });
   }
 
-  castFeedConfig(feedConfig: FeedConfig): void {
-    this.clientKafka.connect()
-      .then((producer) => {
+  async castFeedConfig(feedConfig: FeedConfig): Promise<RecordMetadata[] | Error> {
+    return this.clientKafka.connect()
+      .then(async (producer) => {
 
-        producer.send({
+        // Record the feed config
+        const castFeedResult = producer.send({
           topic: ETopics.FEED,
           messages: [{
             key: feedConfig.id,
             value: JSON.stringify(feedConfig), // TODO Review Serialization format 
           }]
-        }).then((recordMetadata: RecordMetadata[]) => {
-          recordMetadata.forEach(element => {
-            this.logger.debug('Sent Feed record metadata: ' + JSON.stringify(element));
+        })
+          .then((recordMetadata: RecordMetadata[]) => {
+            recordMetadata.forEach(element => {
+              this.logger.debug('Sent Feed record metadata: ' + JSON.stringify(element));
+            });
+            return recordMetadata;
+          })
+          .catch((error) => {
+            return new Error('Failed to cast Feed Config\n' + error);
           });
-        }).catch((error) => { 
-          throw new Error('Failed to cast Feed Config.\nError: ' + error) 
-        });
 
-        producer.send({
+        // Cast the feed's source contract config for further processing
+        const castContractResult = producer.send({
           topic: ETopics.CONTRACT,
           messages: [{
             key: feedConfig.id,
             value: JSON.stringify(feedConfig.source), // TODO Review Serialization format 
           }]
-        }).then((recordMetadata: RecordMetadata[]) => {
-          recordMetadata.forEach(element => {
-            this.logger.debug('Sent Contract record metadata: ' + JSON.stringify(element));
+        })
+          .then((recordMetadata: RecordMetadata[]) => {
+            recordMetadata.forEach(element => {
+              this.logger.debug('Sent Contract record metadata: ' + JSON.stringify(element));
+            });
+            return recordMetadata;
+          })
+          .catch((error) => {
+            return new Error('Failed to cast Contract config\n' + error);
           });
-        }).catch((error) => { 
-          throw new Error('Failed to cast Contract config.\nError: ' + error) 
-        });
+
+        return Promise.all([
+          castFeedResult,
+          castContractResult,
+        ])
+          .then((result) => {
+            let castResult = [];
+            result.forEach((sub) => {
+              if (sub instanceof Error)
+                throw result;
+              castResult = castResult.concat(result);
+            });
+            return castResult;
+          })
+          .catch((error) => {
+            return new Error('Failed to cast feed configs\n' + error);
+          });
       })
       .catch((error: Error) => {
-        throw new Error('Failed kafka client connection.\nError: ' + error)
+        return new Error('Failed kafka client connection\n' + error);
       });
   }
 
-  async createFeed(feedConfig: FeedConfig): Promise<RelayActionResult> {
+  async createFeed(feedConfig: FeedConfig): Promise<RelayActionResult | Error> {
     // 1. Check if existing feed
     // 2. If Existing, enable/resume
     // 3. If non-existing feed: 
@@ -359,32 +401,43 @@ export class FeedHandlerService {
     //    OR the feed creator is part of the Admin group
 
     const feedId = feedConfig.id;
-    let feedStream: RelayActionResult = await this.loadFeed(feedId)
-      .then((feed) => {
-        this.logger.debug('Loaded feed: '+ feed ? JSON.stringify(feed): 'none found with id' + feedId);
-        if (feed == null || feed.id == null){
-          this.logger.log('Initiate creation of Feed \''+feedId+'\'');
+    return this.loadFeedFromTable(feedId)
+      .then((result) => {
+        if (result instanceof Error)
+          throw result;
+
+        this.logger.debug('Loaded feed: ' + result != undefined ? JSON.stringify(result) : 'none found with id' + feedId);
+        if (result == null || result.id == null) {
+          this.logger.log('Initiate creation of Feed \'' + feedId + '\'');
           const dateNow = new Date().toISOString();
           feedConfig.dateCreated = dateNow;
           feedConfig.dateUpdated = dateNow;
-          this.castFeedConfig(feedConfig);
-          return {
-            status: HttpStatus.OK,
-            message: 'Initiating Feed',
-            data: feedConfig
-          };
+          return this.castFeedConfig(feedConfig)
+            .then((result) => {
+              if (result instanceof Error)
+                throw result;
+              return {
+                status: HttpStatus.OK,
+                message: 'Initiating Feed ' + feedId,
+                data: feedConfig
+              };
+            });
         }
-        else if ((Date.now() - Date.parse(feed.dateUpdated) > 5*60*1000) 
-          && (feed.source.status != EContractStatus.OK || feed.target && feed.target.status != EContractStatus.OK)) {
-          this.logger.log('Resume processing of existing Feed \''+feedId+'\'');
+        else if ((Date.now() - Date.parse(result.dateUpdated) > 5 * 60 * 1000)
+          && (result.source.status != EContractStatus.OK || result.target && result.target.status != EContractStatus.OK)) {
+          this.logger.log('Resume processing of existing Feed \'' + feedId + '\'');
           feedConfig.dateUpdated = new Date().toISOString();
-          this.castFeedConfig(feedConfig);
-          return {
-            status: HttpStatus.OK,
-            message: 'Resuming halted Feed',
-            data: feedConfig
-          };
-        } 
+          return this.castFeedConfig(feedConfig)
+            .then((result) => {
+              if (result instanceof Error)
+                throw result;
+              return {
+                status: HttpStatus.OK,
+                message: 'Resuming halted Feed ' + feedId,
+                data: feedConfig
+              };
+            });
+        }
         else {
           return {
             status: HttpStatus.NOT_ACCEPTABLE,
@@ -393,11 +446,9 @@ export class FeedHandlerService {
           };
         }
       })
-      .catch((error) => { 
-        throw new Error('Failed to check if feed exists\n' + error + '\n' + error.stack);
+      .catch((error) => {
+        return new Error('Failed to check if feed exists\n' + error + '\n' + error.stack);
       });
-
-    return feedStream;
   }
 
 }

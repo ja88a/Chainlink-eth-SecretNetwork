@@ -45,13 +45,16 @@ export class FeedHandlerController { // implements OnModuleInit
     });
 
     return await valid.then(async () => {
-      try {
-        const actionRes = await this.feedHandlerService.createFeed(feedConfig);
-        this.logger.log('Price Data Feed creation result: ' + JSON.stringify(actionRes));
-        return actionRes;
-      } catch (error) {
-        throw this.httpExceptionService.serverError(HttpStatus.INTERNAL_SERVER_ERROR, feedConfig, error);
-      }
+      return this.feedHandlerService.createFeed(feedConfig)
+        .then((result) => {
+          if (result instanceof Error)
+            throw result;
+          this.logger.log('Price Data Feed creation result: ' + JSON.stringify(result));
+          return result;
+        })
+        .catch((error) => {
+          throw this.httpExceptionService.serverError(HttpStatus.INTERNAL_SERVER_ERROR, feedConfig, error);
+        });
     });
   }
 

@@ -9,7 +9,7 @@ import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Injec
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 
-import { EErrorExt } from '../config/relayd.config';
+import { EExternalCommunicationMode } from '../config/relayd.config';
 
 @Catch(Error)
 export class HttpExceptionFilterCust implements ExceptionFilter {
@@ -34,11 +34,11 @@ export class HttpExceptionFilterCust implements ExceptionFilter {
   constructor(instanceId?: string) {
     const configService = new ConfigService();
     if (configService === undefined) {
-      this.logger.debug('No Config available');
-      this.errorComMode = EErrorExt.default
+      this.logger.warn('No Config available');
+      this.errorComMode = EExternalCommunicationMode.default
     }
     else {
-      this.errorComMode = configService.get<string>('ERROR_COM_MODE') || EErrorExt.default;
+      this.errorComMode = configService.get<string>('ERROR_COM_MODE') || EExternalCommunicationMode.default;
     }
     this.logger.log('External errors communication mode for \''+instanceId+'\': '+this.errorComMode);
   }
@@ -52,7 +52,7 @@ export class HttpExceptionFilterCust implements ExceptionFilter {
     let respBody: any = null;
 
     switch (this.errorComMode) {
-      case EErrorExt.STANDARD:
+      case EExternalCommunicationMode.STANDARD:
         respStatus = (exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR);
         respBody = {
           statusCode: respStatus,
@@ -60,7 +60,7 @@ export class HttpExceptionFilterCust implements ExceptionFilter {
           error: exception.name,
         };
         break;
-      case EErrorExt.DEBUG:
+      case EExternalCommunicationMode.DEBUG:
         respStatus = (exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR);
         respBody = (exception instanceof HttpException ? exception.getResponse() : exception);
         respBody.time = new Date().toISOString();
@@ -102,8 +102,7 @@ export class HttpExceptionService {
   private readonly errorExtMode: string;
 
   constructor(private configService: ConfigService) {
-    this.errorExtMode = configService.get<string>('ERROR_COM_MODE') || EErrorExt.default;
-    this.configService = null;
+    this.errorExtMode = configService.get<string>('ERROR_COM_MODE') || EExternalCommunicationMode.default;
   }
 
   deny(): HttpException {
@@ -115,13 +114,13 @@ export class HttpExceptionService {
   serverError(errorCode: HttpStatus, input?: any, error?: Error): HttpException {
     let exception = null;
     switch (this.errorExtMode) {
-      case EErrorExt.STANDARD:
+      case EExternalCommunicationMode.STANDARD:
         exception = new HttpException({
           status: errorCode,
           message: 'Internal Server Error'
         }, errorCode);
         break;
-      case EErrorExt.DEBUG:
+      case EExternalCommunicationMode.DEBUG:
         const errorTmp = (error === undefined ? new Error('Internal Server Error') : error);
         //if (error === undefined)
         //  error = new Error('Internal Server Error');
@@ -144,13 +143,13 @@ export class HttpExceptionService {
   clientError(errorCode: HttpStatus, input?: any, error?: Error): HttpException {
     let exception = null;
     switch (this.errorExtMode) {
-      case EErrorExt.STANDARD:
+      case EExternalCommunicationMode.STANDARD:
         exception = new HttpException({
           status: errorCode,
           name: 'Client Error'
         }, errorCode);
         break;
-      case EErrorExt.DEBUG:
+      case EExternalCommunicationMode.DEBUG:
         if (error === undefined)
           error = new Error('Client Request Error');
         exception = new HttpException({

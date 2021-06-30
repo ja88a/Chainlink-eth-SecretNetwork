@@ -6,10 +6,20 @@ import { AppService } from './app.service';
 import { ScrtConnectModule } from '@relayd/scrt-client';
 import { EthConnectModule } from '@relayd/eth-client';
 import { FeedHandlerModule } from '@relayd/feed-handler';
+import { RelaydConfigService, validate } from '@relayd/common';
 
 @Module({
-  imports: [ConfigModule.forRoot(), EthConnectModule, ScrtConnectModule, FeedHandlerModule],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      cache: true,
+      validate,
+    }),
+    EthConnectModule, 
+    ScrtConnectModule, 
+    FeedHandlerModule
+  ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, RelaydConfigService],
 })
 export class AppModule {}

@@ -4,10 +4,7 @@ export {
 } from './rpc.error';
 
 export {
-  createTopicsDefault,
-  getKafkaNativeInfo,
-  getConfigKafka,
-  getConfigKafkaNative,
+  KafkaUtils,
   RelaydKClient,
   RelaydKGroup,
 } from './kafka.utils'

@@ -8,6 +8,7 @@ export enum ValueTypeDate {
   DATE_EPOCH_MS = 'date.epoch.ms',
   DATE_ISO = 'date.iso',
   DATE_UTC = 'date.military',
+  DATE_RAW = 'date.raw',
   default = DATE_ISO,
 } 
 

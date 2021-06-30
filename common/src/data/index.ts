@@ -3,7 +3,10 @@ export {
   EContractCastReason,
   EResultFieldLatestRoundData,
   EContractStatus,
-  ContractUpdate
+  EContractPollingChange,
+  ContractPollingInfo,
+  ContractUpdate,
+  EContractDataUpdateReason,
 } from './contract.data';
 
 export {
@@ -18,10 +21,12 @@ export {
   EFeedTargetType,
   FeedConfig,
   FeedConfigData,
+  FeedConfigSourceHandle,
   FeedConfigSource,
+  FeedContractConfigWrap,
   FeedConfigSourceData,
   OraclePriceData,
   FeedConfigTarget,
   FeedConfigTargetData,
-  ProcessingIssue
+  ProcessingIssue,
 }  from './feed.data';

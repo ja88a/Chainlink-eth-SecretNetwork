@@ -17,7 +17,10 @@ import {
   IsDateString,
   IsNumber,
 } from 'class-validator';
-import { EContractStatus } from './contract.data';
+import { 
+  EContractCastReason, 
+  EContractStatus 
+} from './contract.data';
 
 /** Main Type of Data Feed */
 export enum EFeedDataType {
@@ -157,21 +160,36 @@ export class FeedConfigSourceData {
   time: string; // ISO date & time OR epoch number?
 
   @IsOptional()
+  @IsNumber() 
   round?: number;  
 };
 
 export class ProcessingIssue {
   @IsDefined()
   @Length(3, 40)
-  source: string;
+  issuer: string;
 
   @IsDefined()
-  @Length(3, 40)
-  value: string;
+  @IsEnum(EContractCastReason)
+  type: EContractCastReason;
 
   @IsOptional()
-  @Length(3, 100)
-  description?: string;
+  @MaxLength(255)
+  info?: string;
+} 
+
+export class FeedConfigSourceHandle {
+  @IsDefined()
+  @Length(6, 40) 
+  handler: string;
+
+  @IsDefined()
+  @IsEnum(EFeedSourcePoll) 
+  type: EFeedSourcePoll;
+
+  @IsDefined()
+  @IsDateString()
+  time: string;
 } 
 
 /** 
@@ -185,7 +203,7 @@ export class FeedConfigSource {
 
   /** Reporting of issues while processing the contract */
   @IsOptional()
-  @ArrayMaxSize(20) 
+  @ArrayMaxSize(20) //RelaydConfig.contractIssueMaxNumber
   @ValidateNested()
   @Type(() => ProcessingIssue)
   issue?: ProcessingIssue[];
@@ -194,8 +212,6 @@ export class FeedConfigSource {
   @IsOptional()
   @IsEnum(EFeedSourceNetwork)
   network?: EFeedSourceNetwork = EFeedSourceNetwork.default;
-  // @Length(3, 20)
-  // network?: string = EFeedSourceNetwork.default;
 
   /** Address of the source contract */
   @IsDefined()
@@ -208,8 +224,6 @@ export class FeedConfigSource {
   @IsOptional()
   @IsEnum(EFeedSourceType)
   type?: EFeedSourceType = EFeedSourceType.default;
-  // @Length(3, 40)
-  // type?: string = EFeedSourceType.default;
 
   /** Polling mode to check for data changes: via listening to events or regularly querying the source contract */
   @IsOptional()
@@ -254,7 +268,33 @@ export class FeedConfigSource {
   @ValidateNested()
   @Type(() => FeedConfigSourceData)
   data?: FeedConfigSourceData;
+
+  @IsOptional()
+  //@ValidateIf(o => o.status == EContractStatus.OK)
+  @ArrayMaxSize(20) // RelaydConfig.contractSourceMaxHandle
+  @ValidateNested()
+  @Type(() => FeedConfigSourceHandle)
+  handle?: FeedConfigSourceHandle[];
 };
+
+/** 
+ * Technical wrapping of FeedConfigSource to propagate polling & data updates on a source contract
+ * at the config level 
+ */
+export class FeedContractConfigWrap {
+  @IsDefined() 
+  feedId: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FeedConfigSource)
+  source?: FeedConfigSource;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FeedConfigTarget)
+  target?: FeedConfigTarget;
+} 
 
 /** Supported target contracts' network */
 export enum EFeedTargetNetwork {
@@ -408,4 +448,3 @@ export class FeedConfig {
   @Type(() => FeedConfigTarget)
   target?: FeedConfigTarget;
 };
-

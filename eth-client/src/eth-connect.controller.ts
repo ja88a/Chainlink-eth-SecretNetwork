@@ -1,11 +1,11 @@
 import { EthConnectService } from './eth-connect.service';
 
-import { ETopics, EErrorType, FeedConfigSource, EContractCastReason, maxRecast_contractHandlingFail, maxRecast_networkSourceNotMatching, EContractStatus, VALID_OPT } from '@relayd/common';
+import { ETopic, EErrorType, FeedConfigSource, EContractCastReason, EContractStatus, RelaydConfigService } from '@relayd/common';
 import { ProviderNetwork } from '@relayd/common';
 import { HttpExceptionFilterCust, HttpExceptionService, RpcExceptionFilterCust } from '@relayd/common';
 
 import { Controller, UseFilters } from '@nestjs/common/decorators/core';
-import { Get, Param } from '@nestjs/common/decorators/http';
+import { Get } from '@nestjs/common/decorators/http';
 import { Logger } from '@nestjs/common/services/logger.service';
 
 import { MessagePattern } from '@nestjs/microservices/decorators/message-pattern.decorator';
@@ -20,6 +20,7 @@ export class EthConnectController {
   constructor(
     private readonly ethConnectService: EthConnectService,
     private readonly httpExceptionService: HttpExceptionService,
+    private readonly relaydConfig: RelaydConfigService,
   ) { }
 
   async onModuleInit(): Promise<void> {
@@ -40,18 +41,18 @@ export class EthConnectController {
 
   // http://localhost:3000/eth/event/listen/btcusd
   //  @Get('eth/event/listen/:pair')
-  @UseFilters(RpcExceptionFilterCust.for(EthConnectController.name))
-  listenEventAnswerUpdated(@Param('pair') pair: string): string {
-    const contract = this.ethConnectService.getSourceContracts().get(pair);
-    if (!contract) {
-      this.logger.warn('Unknown contract key requested "' + pair + '" for listening to events AnswerUpdated');
-      return '404';
-    }
-    this.ethConnectService.listenEventOracleAnswerUpdated(contract);
-    return '200';
-  }
+  // @UseFilters(RpcExceptionFilterCust.for(EthConnectController.name))
+  // listenEventAnswerUpdated(@Param('pair') pair: string): string {
+  //   const contract = this.ethConnectService.getSourceContracts().get(pair);
+  //   if (!contract) {
+  //     this.logger.warn('Unknown contract key requested "' + pair + '" for listening to events AnswerUpdated');
+  //     return '404';
+  //   }
+  //   this.ethConnectService.listenEventOracleAnswerUpdated(contract);
+  //   return '200';
+  // }
 
-  @MessagePattern(ETopics.CONTRACT)
+  @MessagePattern(ETopic.CONTRACT)
   @UseFilters(RpcExceptionFilterCust.for(EthConnectController.name))
   handleContractConfig(@Payload() message: KafkaMessage/*, @Ctx() context: KafkaContext*/): void {
     //const originalMessage: KafkaMessage = context.getMessage();
@@ -85,7 +86,7 @@ export class EthConnectController {
       })
       .catch((error) => {
         contractSource.status = EContractStatus.FAIL;
-        this.ethConnectService.castContractConfig(ETopics.CONTRACT, feedId, contractSource,
+        this.ethConnectService.castContractConfig(ETopic.CONTRACT, feedId, contractSource,
           EContractCastReason.HANDLING_VALIDATION_FAIL, ''+error)
           .then(() => {
             this.castError(EErrorType.CONTRACT_CONFIG_INVALID, contractSource, feedId, new Error('Validation of input source Contract has failed'));
@@ -100,17 +101,17 @@ export class EthConnectController {
       // Source contract's network compatibility
       const isCompatible = await this.ethConnectService.checkNetworkMatch(contractSource.network);
       if (!isCompatible) {
-        const countLastNetworkCompatibilityIssues = 1 + this.ethConnectService.countIssueRecentSerie(
+        const countLastNetworkCompatibilityIssues = 1 + this.ethConnectService.countIssueInLastRow(
           contractSource, EContractCastReason.FAILURE_NETWORK_NOT_MATCHING);
         const msg = EContractCastReason.FAILURE_NETWORK_NOT_MATCHING + " No network support found for Source Contract of '"
-          + feedId + "'. Attempt '" + countLastNetworkCompatibilityIssues + '/' + maxRecast_networkSourceNotMatching;
+          + feedId + "'. Attempt '" + countLastNetworkCompatibilityIssues + '/' + this.relaydConfig.maxRecastNetworkSourceNotMatching;
         this.logger.warn(msg);
 
-        const keepTrying = countLastNetworkCompatibilityIssues < maxRecast_networkSourceNotMatching;
+        const keepTrying = countLastNetworkCompatibilityIssues < this.relaydConfig.maxRecastNetworkSourceNotMatching;
         if (!keepTrying)
           contractSource.status = EContractStatus.FAIL;
 
-        const castResult = this.ethConnectService.castContractConfig(ETopics.CONTRACT, feedId, contractSource,
+        const castResult = this.ethConnectService.castContractConfig(ETopic.CONTRACT, feedId, contractSource,
           EContractCastReason.FAILURE_NETWORK_NOT_MATCHING, msg)
           .then((result) => {
             if (result instanceof Error)
@@ -137,7 +138,7 @@ export class EthConnectController {
           if (configUpd instanceof Error)
             throw configUpd;
           
-          const castResult = this.ethConnectService.castContractConfig(ETopics.CONTRACT, feedId, configUpd,
+          const castResult = this.ethConnectService.castContractConfig(ETopic.CONTRACT, feedId, configUpd,
             EContractCastReason.HANDLING_SUCCESS, 'Status: '+configUpd.status)
             .then((result) => {
               if (result instanceof Error)
@@ -150,19 +151,20 @@ export class EthConnectController {
 
           if (castResult instanceof Error)
             throw castResult;
+
           return castResult;
         })
         .catch((error) => {
-          const countLastSerieOfHandlingErrors = 1 + this.ethConnectService.countIssueRecentSerie(contractSource, EContractCastReason.HANDLING_FAILED);
+          const countLastSerieOfHandlingErrors = 1 + this.ethConnectService.countIssueInLastRow(contractSource, EContractCastReason.HANDLING_FAILED);
           const msg = EContractCastReason.HANDLING_FAILED + ': Failed to handle Source Contract \'' + contractSource.contract + '\' for \'' + feedId +
-            '\'. Attempt ' + (countLastSerieOfHandlingErrors) + '/' + maxRecast_contractHandlingFail + ' \n' + error;
+            '\'. Attempt ' + (countLastSerieOfHandlingErrors) + '/' + this.relaydConfig.maxRecastContractHandlingFail + ' \n' + error;
           this.logger.warn(msg);
 
-          const keepTrying = countLastSerieOfHandlingErrors < maxRecast_contractHandlingFail;
+          const keepTrying = countLastSerieOfHandlingErrors < this.relaydConfig.maxRecastContractHandlingFail;
           if (!keepTrying)
             contractSource.status = EContractStatus.FAIL;
 
-          return this.ethConnectService.castContractConfig(ETopics.CONTRACT, feedId, contractSource,
+          return this.ethConnectService.castContractConfig(ETopic.CONTRACT, feedId, contractSource,
             EContractCastReason.HANDLING_FAILED, msg)
             .then((castResult) => {
               if (castResult instanceof Error)
@@ -180,7 +182,7 @@ export class EthConnectController {
       if (contractSourceUpd instanceof Error)
         throw contractSourceUpd;
       
-      this.logger.log('ETH Source contract \'' + contractSource.contract + '\' for \'' + feedId + '\' updated & cast\n' + JSON.stringify(contractSourceUpd || contractSource));
+      this.logger.log('ETH Source contract \'' + contractSource.contract + '\' for \'' + feedId + '\' updated & cast \n' + JSON.stringify(contractSourceUpd || contractSource));
         
     }).catch((error) => {
       this.castError(EErrorType.CONTRACT_CONFIG_GENERAL_FAIL, contractSource, feedId, error);
@@ -195,7 +197,7 @@ export class EthConnectController {
       error: '' + prevError,
     };
     this.logger.error('ETH Source contract processing Error\n' + JSON.stringify(errorInfo));
-    this.ethConnectService.castContractConfig(ETopics.ERROR, feedId, contractSource, 
+    this.ethConnectService.castContractConfig(ETopic.ERROR, feedId, contractSource, 
       EContractCastReason.HANDLING_FAILED, JSON.stringify(errorInfo))
       .then((castResult) => {
         if (castResult instanceof Error)

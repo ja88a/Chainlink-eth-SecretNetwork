@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { getConfigKafka, RelaydKClient, RelaydKGroup } from '@relayd/common';
+import { KafkaUtils, RelaydKClient, RelaydKGroup } from '@relayd/common';
 import { EthConnectModule } from './eth-connect.module';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
 
@@ -9,7 +9,7 @@ async function bootstrap() {
     //logger: false,
   });
 
-  const msConfig = getConfigKafka(RelaydKClient.ETH, RelaydKGroup.ETH);
+  const msConfig = KafkaUtils.getConfigKafka(RelaydKClient.ETH, RelaydKGroup.ETH);
   app.connectMicroservice(msConfig);
 
   app.useGlobalPipes(

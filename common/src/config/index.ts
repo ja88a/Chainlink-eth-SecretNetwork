@@ -1,23 +1,23 @@
-export { 
-  // configKafka, 
-  // configKafkaNative,
-  // configKafkaClient, 
-  // configKafkaConsumer, 
-  // configKafkaProducer,
+export {
   configKafkaTopics,
-  ETopics,
+  ETopic,
   ITopicConfig,
 } from './kafka.config';
 
 export {
-  configEthers,
+//  configEthers,
   EEthersNetwork,
 } from './ethers.config';
 
 export {
-  EErrorExt,
+  EExternalCommunicationMode,
   VALID_OPT,
-  contractDataLastUpdateMaxDays,
-  maxRecast_contractHandlingFail,
-  maxRecast_networkSourceNotMatching,
+  EConfigRunMode,
+  // contractDataLastUpdateMaxDays,
+  // maxRecast_contractHandlingFail,
+  // maxRecast_networkSourceNotMatching,
+  // nbSuccessiveErrorToStopPolling,
+  // contractIssueMaxNumber,
+  RelaydConfigService,
+  validate,
 } from './relayd.config';

@@ -1,18 +1,21 @@
-import { Logger, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+//import { Logger, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common/decorators/core/injectable.decorator';
+import { Logger } from '@nestjs/common/services/logger.service';
+import { RelaydConfigService } from '@relayd/common';
 
 @Injectable()
 export class AppService {
   private readonly logger = new Logger(AppService.name);
 
-  constructor(private configService: ConfigService) {}
+  constructor(private config: RelaydConfigService) {}
 
   getHello(): string {
     this.logger.debug('greetings done');
     return '<html><body><h1>Welcome to <i>relayd</i></h1>' +
       '<div id="config">' + 
-      'Ethereum Network: ' + this.configService.get<string>('ETH_PROVIDER_NETWORK_ID') + '<br/>' +
-      'Secret Network: ' + this.configService.get<string>('SECRET_CHAIN_ID') + '<br/>' + 
+      'Mode: ' + this.config.appRunMode + '<br/>' +
+      'Ethereum Network: ' + this.config.ethProviderNetworkId + '<br/>' +
+      'Secret Network: ' + this.config.secretChainId + '<br/>' + 
       '</div>' +
       '</body></html>';
   }

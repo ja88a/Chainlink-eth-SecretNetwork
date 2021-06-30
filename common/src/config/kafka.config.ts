@@ -121,12 +121,13 @@ export const configKafkaNative: KafkaStreamsConfig = {
 /**
  * App default topics / channels for emiting or listening to messages
  */
-export enum ETopics {
+export enum ETopic {
   ERROR = 'relayd.error',
   FEED = 'relayd.feed',
   CONTRACT = 'relayd.contract',
-  CONTRACT_CONFIG = 'relayd.contract.config',
-  CONTRACT_DATA = 'relayd.contract.data'
+//  CONTRACT_CONFIG = 'relayd.contract.config',
+  CONTRACT_DATA = 'relayd.contract.data',
+  CONTRACT_POLLING = 'relayd.contract.polling'
 }
 
 export type ITopicConfig = {
@@ -139,11 +140,12 @@ export type ITopicConfig = {
  * Configuration of messaging topics / channels
  */
 export const configKafkaTopics: Map<String, ITopicConfig> = new Map([
-  [ETopics.ERROR, { name: ETopics.ERROR, numPartitions: 1, replicationFactor: 1 }],
-  [ETopics.FEED, { name: ETopics.FEED, numPartitions: 1, replicationFactor: 1 }],
-  [ETopics.CONTRACT, { name: ETopics.CONTRACT, numPartitions: 1, replicationFactor: 1 }],
-  [ETopics.CONTRACT_CONFIG, { name: ETopics.CONTRACT_CONFIG, numPartitions: 1, replicationFactor: 1 }],
-  [ETopics.CONTRACT_DATA, { name: ETopics.CONTRACT_DATA, numPartitions: 1, replicationFactor: 1 }],
+  [ETopic.ERROR, { name: ETopic.ERROR, numPartitions: 1, replicationFactor: 1 }],
+  [ETopic.FEED, { name: ETopic.FEED, numPartitions: 1, replicationFactor: 1 }],
+  [ETopic.CONTRACT, { name: ETopic.CONTRACT, numPartitions: 1, replicationFactor: 1 }],
+//  [ETopics.CONTRACT_CONFIG, { name: ETopics.CONTRACT_CONFIG, numPartitions: 1, replicationFactor: 1 }],
+  [ETopic.CONTRACT_DATA, { name: ETopic.CONTRACT_DATA, numPartitions: 1, replicationFactor: 1 }],
+  [ETopic.CONTRACT_POLLING, { name: ETopic.CONTRACT_POLLING, numPartitions: 1, replicationFactor: 1 }],
 ]);
 
 // export class CustStorage extends KStorage {

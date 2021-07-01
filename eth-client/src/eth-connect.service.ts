@@ -42,7 +42,6 @@ import { PreconditionFailedException } from '@nestjs/common/exceptions/precondit
 import { RecordMetadata } from '@nestjs/microservices/external/kafka.interface';
 import { isDate, isDateString, isEthereumAddress, isPositive, validate } from 'class-validator';
 import { FeedConfigSourceHandle, FeedContractConfigWrap } from '@relayd/common/dist/types/data/feed.data';
-import { Cipher } from 'crypto';
 
 @Injectable()
 export class EthConnectService {
@@ -65,10 +64,10 @@ export class EthConnectService {
 
     // TODO Review the need for listening to these responses
     const topics = [
-      ETopic.CONTRACT,
-      ETopic.CONTRACT_DATA,
-      ETopic.CONTRACT_POLLING,
-      ETopic.ERROR
+      ETopic.SOURCE_CONFIG,
+      ETopic.SOURCE_DATA,
+      ETopic.SOURCE_POLLING,
+      ETopic.ERROR_CONFIG,
     ];
     topics.forEach((pattern) => {
       this.clientKafka.subscribeToResponseOf(pattern);
@@ -88,8 +87,15 @@ export class EthConnectService {
   async shutdown(signal: string) {
     this.logger.debug('Shutting down ETH Connect service on signal ' + signal); // e.g. "SIGINT"
 
+    // Stop all data polling
+    this.stopAllSourcePolling();
+
     if (this.provider)
-      this.provider.removeAllListeners();
+      this.provider.removeAllListeners(); 
+      // TODO missing data polling notification + source config update
+
+    if (this.streamFactory)
+      await this.streamFactory.closeAll();
 
     if (this.clientKafka)
       await this.clientKafka.close()
@@ -97,11 +103,9 @@ export class EthConnectService {
           this.logger.debug('ETH kClient closed');
         })
         .catch((error) => {
-          throw new Error('Unexpected closure of ETH kClient\n' + error);
+          throw new Error('Unexpected closure of ETH kClient \n' + error);
         });
 
-    if (this.streamFactory)
-      await this.streamFactory.closeAll();
   }
 
   getServiceId(): string {
@@ -238,7 +242,7 @@ export class EthConnectService {
     // Contract Polling events Logging
     if (this.config.appRunMode !== EConfigRunMode.PROD)
       //const contractPollingStreamLogging = 
-      KafkaUtils.initKStreamWithLogging(this.streamFactory, ETopic.CONTRACT_POLLING, this.logger)
+      KafkaUtils.initKStreamWithLogging(this.streamFactory, ETopic.SOURCE_POLLING, this.logger)
         .then((result: KStream | Error) => {
           if (result instanceof Error)
             return new Error('Failed to init kStream for logging Contract Polling records \n' + result);
@@ -246,20 +250,19 @@ export class EthConnectService {
         });
 
     // Source contract config kTable
-    const resContractPollingKTable = this.initKTableContractSourceConfig()
+    const contractPollingKTableRes = this.initKTableSourceConfig()
       .then((result: KTable | Error) => {
         if (result instanceof Error)
           return new Error('Failed to init kTable on Source Contracts \n' + result);
         this.contractSourceKTable = result;
+        // Merging of contract polling updates into source contract config
+        this.mergeContractConfigToFeedConfig();
         return result;
       });
 
-    // Merging of contract polling updates into source contract config
-    const contractConfigStreamRes = this.mergeContractConfigToFeedConfig();
 
     Promise.all([
-      contractConfigStreamRes,
-      resContractPollingKTable,
+      contractPollingKTableRes,
     ]).then((initRes) => {
       this.logger.log('ETH Contracts Stream & Table started');
       initRes.forEach(element => {
@@ -267,7 +270,7 @@ export class EthConnectService {
           this.logger.error('Failure on Streams initialization \n' + element);
       });
     }).catch((error) => {
-      this.logger.error(new Error('Failed to init Streams \n' + error));
+      this.logger.error(new Error('Failed to init Source Contract Streams \n' + error));
     });
   }
 
@@ -275,8 +278,8 @@ export class EthConnectService {
    * Initialization of a kTable on Source Contract, as a data Feed source
    * @returns created kTable or an error met during that process
    */
-  async initKTableContractSourceConfig(): Promise<KTable | Error> {
-    const topicName = ETopic.CONTRACT;
+  async initKTableSourceConfig(): Promise<KTable | Error> {
+    const topicName = ETopic.SOURCE_CONFIG;
     this.logger.debug('Creating kTable  for \'' + topicName + '\'');
 
     const keyMapperEtl = message => {
@@ -315,7 +318,7 @@ export class EthConnectService {
    * @returns created contract polling stream or an error met during that init process
    */
   async mergeContractConfigToFeedConfig(): Promise<KStream | Error> {
-    const contractPollingTopic = ETopic.CONTRACT_POLLING;
+    const contractPollingTopic = ETopic.SOURCE_POLLING;
     const contractPollingStream: KStream = this.streamFactory.getKStream(contractPollingTopic);
 
     contractPollingStream
@@ -343,7 +346,7 @@ export class EthConnectService {
               return new Error('Failed to process source contract polling handle info for \'' + feedContractWrap.feedId + '\' \n' + newHandleRes);
             contractConfig.handle = newHandleRes;
 
-            return this.castContractConfig(ETopic.CONTRACT, feedContractWrap.feedId, contractConfig,
+            return this.castContractConfig(ETopic.SOURCE_CONFIG, feedContractWrap.feedId, contractConfig,
               EContractCastReason.HANDLING_SUCCESS, 'Update polling info')
               .catch((error) => {
                 return new Error('Failed to cast merged feed-contract config \'' + contractId + '\'\n' + error)
@@ -740,14 +743,15 @@ export class EthConnectService {
         // Check that this contract polling is not already handled by the same owner
         const toPoll = this.checkIfDataPollingRequired(contractConfig);
         if (toPoll instanceof Error) {
-
+          return new Error('Failed to check if data polling on source \''+contractConfig.contract+'\' is required \n'+toPoll);
         }
-        else if (toPoll === undefined) {
-
+        else if (toPoll === undefined || toPoll.length === 0) {
+          this.logger.log('No additional data polling required for \''+contractConfig.contract+'\'. Feed Source polling OK');
+          return undefined;
         }
         else { 
           // Launch the polling process
-          const result = this.initiateContractDataPolling(contractConfig)
+          this.initiateContractDataPolling(contractConfig)
             .then((result) => {
               if (result instanceof Error)
                 return new Error('Failed to initiate source data polling \n'+result);
@@ -874,12 +878,12 @@ export class EthConnectService {
           .then((result: FeedConfigSourceData) => {
             if (notifOn === EFeedSourceNotifOn.CHECK) {
               result.time = convertContractInputValue((Date.now() / 1000), ValueType.DATE, { date: ValueTypeDate.default });
-              return handler.castContractDataUpdate(ETopic.CONTRACT_POLLING, contract.address, result, EContractDataUpdateReason.PERIODIC);
+              return handler.castContractDataUpdate(ETopic.SOURCE_POLLING, contract.address, result, EContractDataUpdateReason.PERIODIC);
             }
             else {
               const hasChanged = handler.checkForContractDataChange(contract.address, result, timePeriod);
               if (hasChanged) {
-                return handler.castContractDataUpdate(ETopic.CONTRACT_POLLING, contract.address, result, EContractDataUpdateReason.DATA_CHANGE);
+                return handler.castContractDataUpdate(ETopic.SOURCE_POLLING, contract.address, result, EContractDataUpdateReason.DATA_CHANGE);
               }
               return [];
             }
@@ -951,7 +955,7 @@ export class EthConnectService {
 
     this.polledSource.set(sourceId, { timeout: timeout, data: undefined });
 
-    return this.castSourcePolling(ETopic.CONTRACT_POLLING, sourceId, EContractPollingChange.ADD_PERIODIC, 'Periodic source contract polling started');
+    return this.castSourcePolling(ETopic.SOURCE_POLLING, sourceId, EContractPollingChange.ADD_PERIODIC, 'Periodic source contract polling started');
   }
 
   private stopSourcePolling(sourceId: string, reasonCode: EContractPollingChange, reasonMsg?: string) {
@@ -963,12 +967,13 @@ export class EthConnectService {
     //timeout.unref();
     clearInterval(timeout);
     this.polledSource.delete(sourceId);
-    return this.castSourcePolling(ETopic.CONTRACT_POLLING, sourceId, reasonCode, reasonMsg);
+    return this.castSourcePolling(ETopic.SOURCE_POLLING, sourceId, reasonCode, reasonMsg);
   }
 
   stopAllSourcePolling() {
     const result: Array<Promise<RecordMetadata[] | Error>> = [];
-    this.getPolledSource().forEach((contractAddr: string) => {
+    const polledSources = this.getPolledSource();
+    polledSources.forEach((contractAddr: string) => {
       result.push(this.stopSourcePolling(contractAddr, EContractPollingChange.REMOVE_PERIODIC, 'Service shutting down'));
     });
     Promise.all(result)

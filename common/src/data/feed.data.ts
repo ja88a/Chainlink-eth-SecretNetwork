@@ -277,25 +277,6 @@ export class FeedConfigSource {
   handle?: FeedConfigSourceHandle[];
 };
 
-/** 
- * Technical wrapping of FeedConfigSource to propagate polling & data updates on a source contract
- * at the config level 
- */
-export class FeedContractConfigWrap {
-  @IsDefined() 
-  feedId: string;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => FeedConfigSource)
-  source?: FeedConfigSource;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => FeedConfigTarget)
-  target?: FeedConfigTarget;
-} 
-
 /** Supported target contracts' network */
 export enum EFeedTargetNetwork {
   SCRT_MAIN = 'scrt-mainnet',
@@ -448,3 +429,23 @@ export class FeedConfig {
   @Type(() => FeedConfigTarget)
   target?: FeedConfigTarget;
 };
+
+
+/** 
+ * Technical wrapping of FeedConfigSource to propagate polling & data updates on a source contract
+ * at the config level 
+ */
+ export class FeedContractConfigWrap {
+  @IsDefined() 
+  feedId: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FeedConfigSource)
+  source?: FeedConfigSource;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FeedConfigTarget)
+  target?: FeedConfigTarget;
+} 

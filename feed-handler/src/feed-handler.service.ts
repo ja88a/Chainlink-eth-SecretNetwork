@@ -24,8 +24,8 @@ export class FeedHandlerService {
 
   async init() {
     const topics = [
-      ETopic.FEED,
-      ETopic.CONTRACT,
+      ETopic.FEED_CONFIG,
+      ETopic.SOURCE_CONFIG,
       // ETopics.CONTRACT_DATA,
       // ETopics.ERROR,
     ];
@@ -71,10 +71,10 @@ export class FeedHandlerService {
           throw new Error(''+result);
         this.feedTable = result;
       })
-//      .catch((error) => { return new Error('Failed to init Feed KTable \n' + error); });
+      .catch((error) => { return new Error('Failed to init Feed KTable \n' + error); });
 
     Promise.all([
-      KafkaUtils.initKStreamWithLogging(this.streamFactory, ETopic.FEED, this.logger),
+      KafkaUtils.initKStreamWithLogging(this.streamFactory, ETopic.FEED_CONFIG, this.logger),
       initFeedKTable,
       this.mergeContractConfigToFeedConfig(),
     ]).then(() => {
@@ -85,7 +85,7 @@ export class FeedHandlerService {
   }
 
     // topicStream
-    //   .from(ETopic.CONTRACT_CONFIG)
+    //   .from(ETopic.SOURCE_CONFIG_CONFIG)
     //   .mapJSONConvenience()
     //   .map((message) => {
     //     const feedId = message.key.toString('utf8');
@@ -99,10 +99,10 @@ export class FeedHandlerService {
     //     this.logger.debug('Contract config reworked\n' + JSON.stringify(contractConfigRecord));
     //     return contractConfigRecord;
     //   })
-    //   .to(ETopic.CONTRACT, 'auto', 'buffer');
+    //   .to(ETopic.SOURCE_CONFIG, 'auto', 'buffer');
 
   async mergeContractConfigToFeedConfig(): Promise<KStream | Error>  {
-    const contractConfigTopic = ETopic.CONTRACT;
+    const contractConfigTopic = ETopic.SOURCE_CONFIG;
     const contractConfigStream: KStream = this.streamFactory.getKStream(contractConfigTopic);
 
     contractConfigStream
@@ -138,7 +138,7 @@ export class FeedHandlerService {
           this.logger.log('Source contract \'' + contractConfig.contract + '\' merged into feed \'' + feedId + '\'');
       })
 
-    return await contractConfigStream.start(
+    return contractConfigStream.start(
         () => { // kafka success callback
           this.logger.debug('kStream on \'' + contractConfigTopic + '\' for merging configs ready. Started');
         },
@@ -157,8 +157,9 @@ export class FeedHandlerService {
   }
 
   async initKTableFeed(): Promise<KTable | Error> {
-    const topicName = ETopic.FEED;
+    const topicName = ETopic.FEED_CONFIG;
     this.logger.debug('Creating kTable  for \'' + topicName + '\'');
+
     const keyMapperEtl = message => {
       const feedConfig: FeedConfig = JSON.parse(message.value.toString());
       this.logger.debug('Feed config kTable \'' + topicName + '\' entry\n' + JSON.stringify(feedConfig));
@@ -184,6 +185,7 @@ export class FeedHandlerService {
     return topicTable.start(
       () => {
         this.logger.debug('kTable  on \'' + topicName + '\' ready. Started');
+//        this.feedTable = topicTable;
       },
       (error) => {
         //this.logger.error('Failed to start kTable for \'' + topicName + '\'\n' + error);
@@ -219,7 +221,7 @@ export class FeedHandlerService {
 
         // Record the feed config
         const castFeedResult = producer.send({
-            topic: ETopic.FEED,
+            topic: ETopic.FEED_CONFIG,
             messages: [{
               key: feedConfig.id,
               value: JSON.stringify(feedConfig), // TODO Review Serialization format 
@@ -239,7 +241,7 @@ export class FeedHandlerService {
         let castContractResult: Promise<RecordMetadata[] | Error>;
         if (castContractConfig) {
           castContractResult = producer.send({
-            topic: ETopic.CONTRACT,
+            topic: ETopic.SOURCE_CONFIG,
             messages: [{
               key: feedConfig.id,
               value: JSON.stringify(feedConfig.source), // TODO Review Serialization format 

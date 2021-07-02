@@ -122,7 +122,8 @@ export const configKafkaNative: KafkaStreamsConfig = {
  * App default topics / channels for emiting or listening to messages
  */
 export enum ETopic {
-  ERROR_CONFIG = 'relayd.error',
+  ERROR_CONFIG = 'relayd.error.feed',
+  ERROR_SOURCE = 'relayd.error.source',
   FEED_CONFIG = 'relayd.feed',
   SOURCE_CONFIG = 'relayd.source',
   SOURCE_DATA = 'relayd.source.data',
@@ -140,6 +141,7 @@ export type ITopicConfig = {
  */
 export const configKafkaTopics: Map<String, ITopicConfig> = new Map([
   [ETopic.ERROR_CONFIG, { name: ETopic.ERROR_CONFIG, numPartitions: 1, replicationFactor: 1 }],
+  [ETopic.ERROR_SOURCE, { name: ETopic.ERROR_SOURCE, numPartitions: 1, replicationFactor: 1 }],
   [ETopic.FEED_CONFIG, { name: ETopic.FEED_CONFIG, numPartitions: 1, replicationFactor: 1 }],
   [ETopic.SOURCE_CONFIG, { name: ETopic.SOURCE_CONFIG, numPartitions: 1, replicationFactor: 1 }],
 //  [ETopics.CONTRACT_CONFIG, { name: ETopics.CONTRACT_CONFIG, numPartitions: 1, replicationFactor: 1 }],

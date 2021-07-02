@@ -1,6 +1,13 @@
 import { EthConnectService } from './eth-connect.service';
 
-import { ETopic, EErrorType, FeedConfigSource, EContractCastReason, EContractStatus, RelaydConfigService } from '@relayd/common';
+import { 
+  ETopic, 
+  EErrorType, 
+  FeedConfigSource, 
+  ESourceCastReason, 
+  ESourceStatus, 
+  RelaydConfigService 
+} from '@relayd/common';
 import { ProviderNetwork } from '@relayd/common';
 import { HttpExceptionFilterCust, HttpExceptionService, RpcExceptionFilterCust } from '@relayd/common';
 
@@ -54,42 +61,42 @@ export class EthConnectController {
 
   @MessagePattern(ETopic.SOURCE_CONFIG)
   @UseFilters(RpcExceptionFilterCust.for(EthConnectController.name))
-  handleContractConfig(@Payload() message: KafkaMessage/*, @Ctx() context: KafkaContext*/): void {
+  handleSourceConfig(@Payload() message: KafkaMessage/*, @Ctx() context: KafkaContext*/): void {
     //const originalMessage: KafkaMessage = context.getMessage();
     // const { headers, offset, timestamp } = originalMessage;
     //this.logger.debug(`Receiving msg on topic '${context.getTopic()}'. Value:\n${JSON.stringify(originalMessage)}`);
 
     const feedId = message.key.toString();
 
-    const contractSource: FeedConfigSource = JSON.parse(JSON.stringify(message.value)); // JSON.parse(message.value.toString())
-    this.logger.debug(`Received Contract: '${contractSource.contract}'\n${JSON.stringify(contractSource)}`);
+    const sourceConfig: FeedConfigSource = JSON.parse(JSON.stringify(message.value)); // JSON.parse(message.value.toString())
+    this.logger.debug(`Received Source: '${sourceConfig.contract}'\n${JSON.stringify(sourceConfig)}`);
 
     // 0. Validate the contract input
     // 1. Check right source network
     // 2. Contract config handling
     // 3. Update the topic(s) with processing results
 
-    if (contractSource == undefined || contractSource.status == EContractStatus.FAIL) {
-      this.logger.warn('Skipping Contract \'' + contractSource?.contract + '\' for feed \'' + feedId + '\' with status \'' + contractSource?.status + '\'');
+    if (sourceConfig == undefined || sourceConfig.status == ESourceStatus.FAIL) {
+      this.logger.warn('Skipping Source \'' + sourceConfig?.contract + '\' for feed \'' + feedId + '\' with status \'' + sourceConfig?.status + '\'');
       return;
     }
 
     // const valid = validateOrReject(contractSource, VALID_OPT).catch((errors) => {
     //   throw new RpcException({ input: contractSource, message: 'Input object validation failed', error: errors });
     // });
-    const validInput = validate(contractSource) // TODO Fix the validation issue on contract config, VALID_OPT
+    const validInput = validate(sourceConfig) // TODO Fix the validation issue on contract config, VALID_OPT
       .then((errorValid) => {
-        this.logger.debug('Contract validation result:' + JSON.stringify(errorValid));
+        this.logger.debug('Source validation result:' + JSON.stringify(errorValid));
         if (errorValid.length > 0)
-          throw new Error('Input source contract validation failed with ' + errorValid.length + ' errors\n' + JSON.stringify(errorValid));
+          throw new Error('Input source validation failed with ' + errorValid.length + ' errors\n' + JSON.stringify(errorValid));
         return true;
       })
       .catch((error) => {
-        contractSource.status = EContractStatus.FAIL;
-        this.ethConnectService.castContractConfig(ETopic.SOURCE_CONFIG, feedId, contractSource,
-          EContractCastReason.HANDLING_VALIDATION_FAIL, ''+error)
+        sourceConfig.status = ESourceStatus.FAIL;
+        this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, sourceConfig,
+          ESourceCastReason.HANDLING_VALIDATION_FAIL, ''+error)
           .then(() => {
-            this.castErrorConfigSource(EErrorType.CONTRACT_CONFIG_INVALID, contractSource, feedId, new Error('Validation of input source Contract has failed'));
+            this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_INVALID, sourceConfig, feedId, new Error('Validation of input source Contract has failed'));
           });
         return false;
       });
@@ -99,31 +106,31 @@ export class EthConnectController {
         return;
 
       // Source contract's network compatibility
-      const isCompatible = await this.ethConnectService.checkNetworkMatch(contractSource.network);
+      const isCompatible = await this.ethConnectService.checkNetworkMatch(sourceConfig.network);
       if (!isCompatible) {
         const countLastNetworkCompatibilityIssues = 1 + this.ethConnectService.countIssueInLastRow(
-          contractSource, EContractCastReason.FAILURE_NETWORK_NOT_MATCHING);
-        const msg = EContractCastReason.FAILURE_NETWORK_NOT_MATCHING + " No network support found for Source Contract of '"
+          sourceConfig, ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING);
+        const msg = ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING + " No network support found for Source Contract of '"
           + feedId + "'. Attempt '" + countLastNetworkCompatibilityIssues + '/' + this.relaydConfig.maxRecastNetworkSourceNotMatching;
         this.logger.warn(msg);
 
         const keepTrying = countLastNetworkCompatibilityIssues < this.relaydConfig.maxRecastNetworkSourceNotMatching;
         if (!keepTrying)
-          contractSource.status = EContractStatus.FAIL;
+          sourceConfig.status = ESourceStatus.FAIL;
 
-        const castResult = this.ethConnectService.castContractConfig(ETopic.SOURCE_CONFIG, feedId, contractSource,
-          EContractCastReason.FAILURE_NETWORK_NOT_MATCHING, msg)
+        const castResult = this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, sourceConfig,
+          ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING, msg)
           .then((result) => {
             if (result instanceof Error)
               throw result;
-            return contractSource;
+            return sourceConfig;
           })
           .catch((error) => {
-            return new Error('Failed to cast contract \'' + contractSource.contract + '\' update ('+EContractCastReason.FAILURE_NETWORK_NOT_MATCHING+' fail)\n' + error);
+            return new Error('Failed to cast source \'' + sourceConfig.contract + '\' update ('+ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING+' fail)\n' + error);
           })
           .finally(() => {
             if (!keepTrying)
-              this.castErrorConfigSource(EErrorType.CONTRACT_CONFIG_NETWORK_NOSUPPORT, contractSource, feedId, new Error('No network support found for contract \'' + contractSource.contract + '\' of feed \'' + feedId + '\'\n' + msg));
+              this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_NETWORK_NOSUPPORT, sourceConfig, feedId, new Error('No network support found for contract \'' + sourceConfig.contract + '\' of feed \'' + feedId + '\'\n' + msg));
           });
 
         if (typeof castResult == Error.name)
@@ -133,23 +140,23 @@ export class EthConnectController {
 
       // Handle the contract config
       const contractSourceUpd = await this.ethConnectService
-        .handleSourceContract(contractSource)
+        .handleSourceContract(sourceConfig)
         .then((configUpd) => {
           if (configUpd instanceof Error)
             throw configUpd;
           if (configUpd === undefined) {
-            this.logger.debug('No source contract handling required for \''+contractSource.contract+'\'');
+            this.logger.debug('No source handling required for \''+sourceConfig.contract+'\'');
             return undefined;
           }
-          const castResult = this.ethConnectService.castContractConfig(ETopic.SOURCE_CONFIG, feedId, configUpd,
-            EContractCastReason.HANDLING_SUCCESS, 'Status: '+configUpd.status)
+          const castResult = this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, configUpd,
+            ESourceCastReason.HANDLING_SUCCESS, 'Status: '+configUpd.status)
             .then((result: RecordMetadata[] | Error) => {
               if (result instanceof Error)
                 throw result;
               return configUpd;
             })
             .catch((error) => {
-              return new Error('Failed to cast contract \'' + configUpd.contract + '\' config updated (success)\n' + error);
+              return new Error('Failed to cast source \'' + configUpd.contract + '\' config updated (success)\n' + error);
             });
 
           if (castResult instanceof Error)
@@ -158,27 +165,27 @@ export class EthConnectController {
           return castResult;
         })
         .catch((error) => {
-          const countLastSerieOfHandlingErrors = 1 + this.ethConnectService.countIssueInLastRow(contractSource, EContractCastReason.HANDLING_FAILED);
-          const msg = EContractCastReason.HANDLING_FAILED + ': Failed to handle Source Contract \'' + contractSource.contract + '\' for \'' + feedId +
-            '\'. Attempt ' + (countLastSerieOfHandlingErrors) + '/' + this.relaydConfig.maxRecastContractHandlingFail + ' \n' + error;
+          const countLastSerieOfHandlingErrors = 1 + this.ethConnectService.countIssueInLastRow(sourceConfig, ESourceCastReason.HANDLING_FAILED);
+          const msg = ESourceCastReason.HANDLING_FAILED + ': Failed to handle Source \'' + sourceConfig.contract + '\' for \'' + feedId +
+            '\'. Attempt ' + (countLastSerieOfHandlingErrors) + '/' + this.relaydConfig.maxRecastSourceHandlingFail + ' \n' + error;
           this.logger.warn(msg);
 
-          const keepTrying = countLastSerieOfHandlingErrors < this.relaydConfig.maxRecastContractHandlingFail;
+          const keepTrying = countLastSerieOfHandlingErrors < this.relaydConfig.maxRecastSourceHandlingFail;
           if (!keepTrying)
-            contractSource.status = EContractStatus.FAIL;
+            sourceConfig.status = ESourceStatus.FAIL;
 
-          return this.ethConnectService.castContractConfig(ETopic.SOURCE_CONFIG, feedId, contractSource,
-            EContractCastReason.HANDLING_FAILED, msg)
+          return this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, sourceConfig,
+            ESourceCastReason.HANDLING_FAILED, msg)
             .then((castResult: RecordMetadata[] | Error) => {
               if (castResult instanceof Error)
                 throw castResult;
-              return contractSource;
+              return sourceConfig;
             })
             .catch((error) => {
-              return new Error('Failed to cast contract \'' + contractSource.contract + '\'  config update ('+EContractCastReason.HANDLING_FAILED+' fail)\n' + error);
+              return new Error('Failed to cast source \'' + sourceConfig.contract + '\' config update ('+ESourceCastReason.HANDLING_FAILED+' fail)\n' + error);
             }).finally(() => {
               if (!keepTrying)
-                this.castErrorConfigSource(EErrorType.CONTRACT_CONFIG_HANDLING_FAIL, contractSource, feedId, new Error(msg));
+                this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_HANDLING_FAIL, sourceConfig, feedId, new Error(msg));
             });
         });
       
@@ -186,29 +193,11 @@ export class EthConnectController {
         throw contractSourceUpd;
       
       if (contractSourceUpd !== undefined)
-        this.logger.log('ETH Source contract \'' + contractSource.contract + '\' for \'' + feedId + '\' updated & cast \n' + JSON.stringify(contractSourceUpd || contractSource));
+        this.logger.log('ETH Source \'' + sourceConfig.contract + '\' for \'' + feedId + '\' updated & cast \n' + JSON.stringify(contractSourceUpd || sourceConfig));
         
     }).catch((error) => {
-      this.castErrorConfigSource(EErrorType.CONTRACT_CONFIG_GENERAL_FAIL, contractSource, feedId, error);
+      this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_GENERAL_FAIL, sourceConfig, feedId, error);
     });
   }
 
-  private castErrorConfigSource(errorType: EErrorType, contractSource: FeedConfigSource, feedId: string, prevError: any) {
-    const errorInfo = {
-      type: errorType,
-      input: contractSource,
-      message: 'Failure in ETH source contract \'' + contractSource.contract + '\' config handling for \'' + feedId + '\'',
-      error: '' + prevError,
-    };
-    this.logger.error('ETH Source contract processing Error\n' + JSON.stringify(errorInfo));
-    this.ethConnectService.castContractConfig(ETopic.ERROR_CONFIG, feedId, contractSource, 
-      EContractCastReason.HANDLING_FAILED, JSON.stringify(errorInfo))
-      .then((castResult) => {
-        if (castResult instanceof Error)
-          throw new Error('Failed to cast contract config to error queue\n' + castResult);
-      })
-      .catch((error) => {
-        this.logger.error('Failed to cast error \'' + errorType + '\'/\'' + EContractCastReason.HANDLING_FAILED + '\' on contract \'' + contractSource.contract + '\' for feed \'' + feedId + '\'\nInitial Error: ' + JSON.stringify(prevError) + '\n\n' + error);
-      });
-  }
 }

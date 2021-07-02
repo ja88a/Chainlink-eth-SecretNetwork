@@ -1,5 +1,15 @@
-import { ETopic, KafkaUtils, RelaydKClient, RelaydKGroup, EContractStatus, FeedConfigSource, deepCopyJson } from '@relayd/common';
-import { FeedConfig, RelayActionResult } from '@relayd/common';
+import {
+  EErrorType,
+  ESourceCastReason,
+  ESourceStatus,
+  ETopic,
+  FeedConfig,
+  FeedConfigSource,
+  KafkaUtils, 
+  RelaydKClient, 
+  RelaydKGroup,
+} from '@relayd/common';
+import { RelayActionResult } from '@relayd/common';
 import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
 
 import { Injectable, Logger } from '@nestjs/common';
@@ -76,7 +86,7 @@ export class FeedHandlerService {
     Promise.all([
       KafkaUtils.initKStreamWithLogging(this.streamFactory, ETopic.FEED_CONFIG, this.logger),
       initFeedKTable,
-      this.mergeContractConfigToFeedConfig(),
+      this.mergeSourceToFeedConfig(),      
     ]).then(() => {
       this.logger.log('Feed Stream & Table successfully started');
     }).catch((error) => {
@@ -101,59 +111,57 @@ export class FeedHandlerService {
     //   })
     //   .to(ETopic.SOURCE_CONFIG, 'auto', 'buffer');
 
-  async mergeContractConfigToFeedConfig(): Promise<KStream | Error>  {
-    const contractConfigTopic = ETopic.SOURCE_CONFIG;
-    const contractConfigStream: KStream = this.streamFactory.getKStream(contractConfigTopic);
+  async mergeSourceToFeedConfig(): Promise<void>  { // KStream | Error
+    const sourceConfigTopic = ETopic.SOURCE_CONFIG;
+    const sourceConfigStream: KStream = this.streamFactory.getKStream(sourceConfigTopic);
 
-    contractConfigStream
+    sourceConfigStream
       .mapJSONConvenience()
-      .forEach(async (contractConfigRecord) => {
-        const feedId = contractConfigRecord.key?.toString('utf8');
-        const contractConfig = contractConfigRecord.value;
-        //this.logger.debug('Processing contract config \'' + contractConfig.contract + '\' for merging in feed \'' + feedId + '\'\n' + JSON.stringify(contractConfigRecord));
-        this.logger.debug('Processing contract config \'' + contractConfig.contract + '\' for merging in feed \'' + feedId + '\'');
+      .forEach(async (sourceConfigRecord) => {
+        const feedId = sourceConfigRecord.key?.toString('utf8');
         if (!feedId)
-          throw new Error('Contract config record on \'' + contractConfigTopic + '\' has no feed ID key\n' + JSON.stringify(contractConfigRecord));
+          throw new Error('Source config record on \'' + sourceConfigTopic + '\' has no feed ID key\n' + JSON.stringify(sourceConfigRecord));
+        const sourceConfig = sourceConfigRecord.value;
+        //this.logger.debug('Processing source config \'' + sourceConfig.contract + '\' for merging in feed \'' + feedId + '\'\n' + JSON.stringify(sourceConfigRecord));
+        this.logger.debug('Processing source config \'' + sourceConfig.contract + '\' for merging in feed \'' + feedId + '\'');
         
         const feedConfigMerged = await this.loadFeedFromTable(feedId)//, FeedConfig) //; this.feedTable.getStorage().get(feedId)         
           .catch((error) => {
-            return new Error('Failed to merge contract \'' + contractConfig?.contract + '\' to feed \'' + feedId + '\'\n' + error);
+            return new Error('Failed to merge source \'' + sourceConfig?.contract + '\' to feed \'' + feedId + '\'\n' + error);
           })
           .then((feedConfig: FeedConfig | Error) => {
             if (!feedConfig || feedConfig instanceof Error)
-              return new Error('No target feed config \'' + feedId + '\' found for merging contract \'' + contractConfig.contract + '\'');
+              return new Error('No target feed config \'' + feedId + '\' found for merging contract \'' + sourceConfig.contract + '\'');
 
             //this.logger.log('Merging\nContract:\n' + JSON.stringify(contractConfig) + '\nin Feed:\n' + JSON.stringify(feedConfig));
-            feedConfig.source = contractConfig;
+            feedConfig.source = sourceConfig;
+            this.logger.log('Source config \'' + sourceConfig.contract + '\' update merged into feed \'' + feedId + '\' - Casting feed update');
             return this.castFeedConfig(feedConfig, false)
               .catch((error) => { 
-                return new Error('Failed to cast merged feed-contract config \'' + feedId + '\'\n' + error) 
+                return new Error('Failed to cast merged feed-source config \'' + feedId + '\'\n' + error) 
               });
           });
 
         if (feedConfigMerged instanceof Error)
-          this.logger.error('' + feedConfigMerged);
-        else
-          //this.logger.log('Source contract \'' + contractConfig.contract + '\' merged into feed \'' + feedId + '\'\n' + JSON.stringify(feedConfigMerged));
-          this.logger.log('Source contract \'' + contractConfig.contract + '\' merged into feed \'' + feedId + '\'');
+          KafkaUtils.castError(ETopic.ERROR_CONFIG, EErrorType.SOURCE_CONFIG_MERGE_FAIL, feedId, sourceConfigRecord, feedConfigMerged, 'Failed to merge Source config update in Feed', undefined, this.logger);
       })
 
-    return contractConfigStream.start(
+    return sourceConfigStream.start(
         () => { // kafka success callback
-          this.logger.debug('kStream on \'' + contractConfigTopic + '\' for merging configs ready. Started');
+          this.logger.debug('kStream on \'' + sourceConfigTopic + '\' for merging configs ready. Started');
         },
         (error) => { // kafka error callback
-          this.logger.error('Kafka Failed to start Stream on \'' + contractConfigTopic + '\'\n' + error);
+          this.logger.error('Kafka Failed to start Stream on \'' + sourceConfigTopic + '\'\n' + error);
         },
         // false,
         // outputStreamConfig
       )
-      .then(() =>{
-        return contractConfigStream;
-      })
-      .catch((error) =>{
-        return new Error('Failed to initiate contract config stream for merging in feed config \n'+ error);
-      });
+      // .then(() =>{
+      //   return sourceConfigStream;
+      // })
+      // .catch((error) =>{
+      //   return new Error('Failed to initiate contract config stream for merging in feed config \n'+ error);
+      // });
   }
 
   async initKTableFeed(): Promise<KTable | Error> {
@@ -215,7 +223,7 @@ export class FeedHandlerService {
       });
   }
 
-  async castFeedConfig(feedConfig: FeedConfig, castContractConfig = true): Promise<RecordMetadata[] | Error> {
+  async castFeedConfig(feedConfig: FeedConfig, castSourceConfig = true): Promise<RecordMetadata[] | Error> {
     return this.clientKafka.connect()
       .then(async (producer) => {
 
@@ -239,7 +247,7 @@ export class FeedHandlerService {
 
         // Cast the feed's source contract config for further processing
         let castContractResult: Promise<RecordMetadata[] | Error>;
-        if (castContractConfig) {
+        if (castSourceConfig) {
           castContractResult = producer.send({
             topic: ETopic.SOURCE_CONFIG,
             messages: [{
@@ -281,6 +289,7 @@ export class FeedHandlerService {
       });
   }
 
+
   async createFeed(feedConfig: FeedConfig): Promise<RelayActionResult | Error> {
     // 1. Check if existing feed
     // 2. If Existi ng, enable/resume
@@ -316,7 +325,7 @@ export class FeedHandlerService {
             });
         }
         else if ((Date.now() - Date.parse(result.dateUpdated) > 5 * 60 * 1000)
-          && (result.source.status != EContractStatus.OK || result.target && result.target.status != EContractStatus.OK)) {
+          && (result.source.status != ESourceStatus.OK || result.target && result.target.status != ESourceStatus.OK)) {
           this.logger.log('Resume processing of existing Feed \'' + feedId + '\'');
           feedConfig.dateUpdated = new Date().toISOString();
           return this.castFeedConfig(feedConfig)

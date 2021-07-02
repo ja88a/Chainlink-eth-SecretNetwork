@@ -17,7 +17,7 @@ export class ProviderNetwork {
 };
 
 /** Reason for casting a contract update */
-export enum EContractCastReason {
+export enum ESourceCastReason {
   HANDLING_SUCCESS = 'contract.handling.success',
   HANDLING_FAILED = 'contract.handling.fail',
   FAILURE_NETWORK_NOT_MATCHING = 'failure.network.incompatible',
@@ -26,7 +26,7 @@ export enum EContractCastReason {
 };
 
 /** Supported contract statuses */
-export enum EContractStatus {
+export enum ESourceStatus {
   INI = HttpStatus.CONTINUE,
   OK = HttpStatus.OK,
   PARTIAL = HttpStatus.PARTIAL_CONTENT,
@@ -39,12 +39,12 @@ export enum EResultFieldLatestRoundData {
   UPDATE_TIME = 'updatedAt',
 };
 
-export enum EContractDataUpdateReason {
+export enum ESourceDataUpdateReason {
   DATA_CHANGE = 'polling.data.change',
   PERIODIC = 'polling.periodic.check',
 }; 
 
-export enum EContractPollingChange {
+export enum ESourcePollingChange {
   ADD_PERIODIC = 'polling.add.period',
   ADD_LISTEN_EVENT = 'polling.add.event',
 
@@ -56,11 +56,11 @@ export enum EContractPollingChange {
 };
 
 
-export class ContractPollingInfo {
+export class SourcePollingInfo {
   /** Address of the polled ETH contract */
   @IsDefined()
   @IsEthereumAddress()  
-  contract: string;
+  source: string;
   
   /** ID of the contract handler, or issue reporter */
   @IsDefined()
@@ -68,8 +68,8 @@ export class ContractPollingInfo {
   issuer: string;
 
   @IsDefined()
-  @IsEnum(EContractPollingChange) 
-  change: EContractPollingChange;
+  @IsEnum(ESourcePollingChange) 
+  change: ESourcePollingChange;
 
   @IsOptional()
   @Length(3, 255)
@@ -77,7 +77,7 @@ export class ContractPollingInfo {
 };
 
 
-export class ContractUpdate {
+export class RelaydDataUpdate {
   /** The feed the contract's update relates to */
   @IsDefined()
   feed: string;

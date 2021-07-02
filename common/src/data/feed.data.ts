@@ -18,9 +18,9 @@ import {
   IsNumber,
 } from 'class-validator';
 import { 
-  EContractCastReason, 
-  EContractStatus 
-} from './contract.data';
+  ESourceCastReason, 
+  ESourceStatus 
+} from './source.data';
 
 /** Main Type of Data Feed */
 export enum EFeedDataType {
@@ -170,8 +170,8 @@ export class ProcessingIssue {
   issuer: string;
 
   @IsDefined()
-  @IsEnum(EContractCastReason)
-  type: EContractCastReason;
+  @IsEnum(ESourceCastReason)
+  type: ESourceCastReason;
 
   @IsOptional()
   @MaxLength(255)
@@ -198,8 +198,8 @@ export class FeedConfigSourceHandle {
 export class FeedConfigSource {
   /** Source status, in terms of access to its functions and data */
   @IsOptional()
-  @IsEnum(EContractStatus)
-  status?: EContractStatus = EContractStatus.INI;
+  @IsEnum(ESourceStatus)
+  status?: ESourceStatus = ESourceStatus.INI;
 
   /** Reporting of issues while processing the contract */
   @IsOptional()
@@ -322,8 +322,8 @@ export class FeedConfigTargetData {
 export class FeedConfigTarget {
   /** Target status, in terms of access to its functions and data */
   @IsOptional()
-  @IsEnum(EContractStatus)
-  status?: EContractStatus = EContractStatus.INI;
+  @IsEnum(ESourceStatus)
+  status?: ESourceStatus = ESourceStatus.INI;
   
   /** Target contract address */
   @IsOptional()
@@ -339,7 +339,7 @@ export class FeedConfigTarget {
   // TODO If feed owner undefined, use feed creator's default oracle group
   // TODO Support for a Group to be feed & contract owner, its members are granted handlers
   @IsOptional()
-  @ValidateIf(o => o.status === EContractStatus.OK)
+  @ValidateIf(o => o.status === ESourceStatus.OK)
   @Length(44, 46)
   @Contains('secret')
   owner?: string;
@@ -361,7 +361,7 @@ export class FeedConfigTarget {
 
   /** The target contract data info and values */
 //  @IsOptional()
-  @ValidateIf(o => o.status === EContractStatus.OK)
+  @ValidateIf(o => o.status === ESourceStatus.OK)
   @ValidateNested()
   @Type(() => FeedConfigTargetData)
   data?: FeedConfigTargetData;
@@ -435,7 +435,7 @@ export class FeedConfig {
  * Technical wrapping of FeedConfigSource to propagate polling & data updates on a source contract
  * at the config level 
  */
- export class FeedContractConfigWrap {
+ export class FeedSourceConfigWrap {
   @IsDefined() 
   feedId: string;
 

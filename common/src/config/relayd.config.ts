@@ -105,7 +105,7 @@ class RelaydConfigDefaultProd extends RelaydConfigDefaultCore {
   @IsOptional()
   @Min(1)
   @Max(188)
-  CONTRACT_DATA_LAST_UPDATE_MAX_DAYS?: number = 30;
+  SOURCE_DATA_LAST_UPDATE_MAX_DAYS?: number = 30;
 
   /**
    * Maximum number of recast of a source contract config
@@ -114,7 +114,7 @@ class RelaydConfigDefaultProd extends RelaydConfigDefaultCore {
   @IsOptional()
   @Min(0)
   @Max(5)
-  MAX_RECAST_CONTRACT_HANDLING_FAIL?: number = 2;
+  MAX_RECAST_SOURCE_HANDLING_FAIL?: number = 2;
 
   /** 
    * Number of successive errors met while polling a contract data
@@ -129,13 +129,13 @@ class RelaydConfigDefaultProd extends RelaydConfigDefaultCore {
   @IsOptional()
   @Min(0)
   @Max(20)
-  CONTRACT_ISSUE_MAX_NUMBER?: number = 10;
+  SOURCE_ISSUE_MAX_NUMBER?: number = 10;
 
   /** Maximum number of entries about a source contract handling, e.g. polling info */
   @IsOptional()
   @Min(1)
   @Max(20)
-  CONTRACT_SOURCE_MAX_HANDLE?: number = 10;
+  SOURCE_MAX_HANDLE?: number = 10;
 
   /** 
    * Allow or not a relayd node to handle multiple polling of the same data source. 
@@ -145,37 +145,37 @@ class RelaydConfigDefaultProd extends RelaydConfigDefaultCore {
   // TODO PROD Forbid same node to handle multiple polling of the same contract (set to 'false')
   @IsOptional()
   @IsBoolean()
-  CONTRACT_POLLING_ALLOW_MULTIPLE_BY_SAME_HANDLER?: boolean = false;
+  SOURCE_POLLING_ALLOW_MULTIPLE_BY_SAME_HANDLER?: boolean = false;
 
   /** Allow or not a relayd node to handle different types of polling, e.g. event & periodic, on the same data source */
   @IsOptional()
   @IsBoolean()
-  CONTRACT_POLLING_ALLOW_MULTIPLE_TYPE_BY_SAME_HANDLER?: boolean = false;
+  SOURCE_POLLING_ALLOW_MULTIPLE_TYPE_BY_SAME_HANDLER?: boolean = false;
 
   /** Expected number of event-based polling / listeners on each source contract */
   @IsOptional()
   @Min(2)
   @Max(10)
-  CONTRACT_SOURCE_NB_EVENT_LISTENER?: number = 3
+  SOURCE_NB_EVENT_LISTENER?: number = 3
 
   @IsOptional()
   @Min(2)
   @Max(10)
-  CONTRACT_SOURCE_NB_PERIODIC_QUERIER?: number = 3;
+  SOURCE_NB_PERIODIC_QUERIER?: number = 3;
 }
 
 class RelaydConfigDefaultDev extends RelaydConfigDefaultProd {
   @IsOptional()
   @IsBoolean()
-  CONTRACT_POLLING_ALLOW_MULTIPLE_BY_SAME_NODE?: boolean = true;
+  SOURCE_POLLING_ALLOW_MULTIPLE_BY_SAME_NODE?: boolean = true;
 
   @IsOptional()
   @IsBoolean()
-  CONTRACT_POLLING_ALLOW_MULTIPLE_TYPE_BY_SAME_HANDLER?: boolean = true;
+  SOURCE_POLLING_ALLOW_MULTIPLE_TYPE_BY_SAME_HANDLER?: boolean = true;
 
-  CONTRACT_SOURCE_NB_EVENT_LISTENER?: number = 3;
+  SOURCE_NB_EVENT_LISTENER?: number = 3;
 
-  CONTRACT_SOURCE_NB_PERIODIC_QUERIER?: number = 3;
+  SOURCE_NB_PERIODIC_QUERIER?: number = 3;
 }
 
 export function validate(config: Record<string, unknown>) {
@@ -257,8 +257,8 @@ export class RelaydConfigService {
   // Source Contract Validation
   // 
 
-  get contractDataLastUpdateMaxDays(): number {
-    return this.configService.get<number>('CONTRACT_DATA_LAST_UPDATE_MAX_DAYS', this.default.CONTRACT_DATA_LAST_UPDATE_MAX_DAYS);
+  get sourceDataLastUpdateMaxDays(): number {
+    return this.configService.get<number>('SOURCE_DATA_LAST_UPDATE_MAX_DAYS', this.default.SOURCE_DATA_LAST_UPDATE_MAX_DAYS);
   }
 
   // _______________________________________________________
@@ -270,8 +270,8 @@ export class RelaydConfigService {
     return this.configService.get<number>('MAX_RECAST_NETWORK_SOURCE_NOT_MATCHING', this.default.MAX_RECAST_NETWORK_SOURCE_NOT_MATCHING);
   }
 
-  get maxRecastContractHandlingFail(): number {
-    return this.configService.get<number>('MAX_RECAST_CONTRACT_HANDLING_FAIL', this.default.MAX_RECAST_CONTRACT_HANDLING_FAIL);
+  get maxRecastSourceHandlingFail(): number {
+    return this.configService.get<number>('MAX_RECAST_SOURCE_HANDLING_FAIL', this.default.MAX_RECAST_SOURCE_HANDLING_FAIL);
   }
 
   get maxSuccessiveErrorToStopPolling(): number {
@@ -283,28 +283,28 @@ export class RelaydConfigService {
   // Limits & Allowances
   // 
 
-  get contractIssueMaxNumber(): number {
-    return this.configService.get<number>('CONTRACT_ISSUE_MAX_NUMBER', this.default.CONTRACT_ISSUE_MAX_NUMBER);
+  get sourceIssueMaxNumber(): number {
+    return this.configService.get<number>('SOURCE_ISSUE_MAX_NUMBER', this.default.SOURCE_ISSUE_MAX_NUMBER);
   }
 
-  get contractPollingAllowMultipleBySameIssuer(): boolean {
-    return this.configService.get<boolean>('CONTRACT_POLLING_ALLOW_MULTIPLE_BY_SAME_HANDLER', this.default.CONTRACT_POLLING_ALLOW_MULTIPLE_BY_SAME_HANDLER);
+  get sourcePollingAllowMultipleBySameIssuer(): boolean {
+    return this.configService.get<boolean>('SOURCE_POLLING_ALLOW_MULTIPLE_BY_SAME_HANDLER', this.default.SOURCE_POLLING_ALLOW_MULTIPLE_BY_SAME_HANDLER);
   }
   
-  get contractPollingAllowMultipleTypeBySameIssuer(): boolean {
-    return this.configService.get<boolean>('CONTRACT_POLLING_ALLOW_MULTIPLE_TYPE_BY_SAME_HANDLER', this.default.CONTRACT_POLLING_ALLOW_MULTIPLE_TYPE_BY_SAME_HANDLER);
+  get sourcePollingAllowMultipleTypeBySameIssuer(): boolean {
+    return this.configService.get<boolean>('SOURCE_POLLING_ALLOW_MULTIPLE_TYPE_BY_SAME_HANDLER', this.default.SOURCE_POLLING_ALLOW_MULTIPLE_TYPE_BY_SAME_HANDLER);
   }
 
-  get contractSourceMaxHandle(): number {
-    return this.configService.get<number>('CONTRACT_SOURCE_MAX_HANDLE', this.default.CONTRACT_SOURCE_MAX_HANDLE);
+  get sourceMaxHandle(): number {
+    return this.configService.get<number>('SOURCE_MAX_HANDLE', this.default.SOURCE_MAX_HANDLE);
   }
 
-  get contractSourceNbEventListener(): number {
-    return this.configService.get<number>('CONTRACT_SOURCE_NB_EVENT_LISTENER', this.default.CONTRACT_SOURCE_NB_EVENT_LISTENER);
+  get sourceNbEventListener(): number {
+    return this.configService.get<number>('SOURCE_NB_EVENT_LISTENER', this.default.SOURCE_NB_EVENT_LISTENER);
   }
   
-  get contractSourceNbPeriodicQuerier(): number {
-    return this.configService.get<number>('CONTRACT_SOURCE_NB_PERIODIC_QUERIER', this.default.CONTRACT_SOURCE_NB_PERIODIC_QUERIER);
+  get sourceNbPeriodicQuerier(): number {
+    return this.configService.get<number>('SOURCE_NB_PERIODIC_QUERIER', this.default.SOURCE_NB_PERIODIC_QUERIER);
   }
 
   // _______________________________________________________

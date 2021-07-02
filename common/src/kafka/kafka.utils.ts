@@ -1,10 +1,11 @@
 import { Logger } from "@nestjs/common/services/logger.service";
 import { ClientKafka } from "@nestjs/microservices/client/client-kafka";
-import { Admin, ITopicConfig, KafkaConfig } from "@nestjs/microservices/external/kafka.interface";
+import { Admin, ITopicConfig, Kafka, KafkaConfig, Producer } from "@nestjs/microservices/external/kafka.interface";
 import { KafkaOptions } from "@nestjs/microservices/interfaces/microservice-configuration.interface";
 import { KafkaStreamsConfig, KStream } from "kafka-streams";
 import { deepCopyJson } from "../utils/misc.utils";
 import { configKafka, configKafkaClient, configKafkaNative, configKafkaTopics, ETopic } from "../config/kafka.config";
+import { EErrorType } from "./rpc.error";
 
 export enum RelaydKClient {
   AIO = 'relayd.aio',
@@ -155,5 +156,42 @@ export class KafkaUtils {
       }
     );
     return topicStream;
+  }
+
+  static castError(errorTopic: ETopic, errorType: EErrorType, key: string, input: any, prevError: any, msg?: string, kafkaProducer?: Producer, logger?: Logger) {
+    const errorInfo = {
+      type: errorType,
+      input: input,
+      message: msg,
+      error: '' + prevError,
+    };
+    
+    let kProducer: Producer;
+    let disconnect = false;
+    if (kafkaProducer === undefined) {
+      disconnect = true;
+      const configKafkaClient = KafkaUtils.getConfigKafkaClient(RelaydKClient.ERR + '_generic');
+      kProducer = new Kafka(configKafkaClient).producer();
+    }
+    else
+      kProducer = kafkaProducer;
+    
+    const aLoger = logger === undefined ? logger : Logger;
+
+    kProducer.connect().then(() => {
+      kProducer.send({
+        topic: errorTopic,
+        messages: [{
+          key: key,
+          value: JSON.stringify(errorInfo)
+        }]
+      }).then(() => {
+        aLoger.warn('Error caught and cast to \''+errorTopic+'\' with key \''+key+'\'\n'+JSON.stringify(errorInfo));
+      }).catch((error) => { 
+        aLoger.error('Failed to cast error.\n'+JSON.stringify(errorInfo)+'\n'+error);
+      }); 
+    }).catch((error) => {
+      aLoger.error('Failed to kConnect to cast error\n'+errorInfo+'\n'+error);
+    }).finally(() => { if(disconnect) kProducer.disconnect()});
   }
 }

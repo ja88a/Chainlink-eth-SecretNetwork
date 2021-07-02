@@ -1,13 +1,13 @@
 export {
   ProviderNetwork,
-  EContractCastReason,
+  ESourceCastReason,
   EResultFieldLatestRoundData,
-  EContractStatus,
-  EContractPollingChange,
-  ContractPollingInfo,
-  ContractUpdate,
-  EContractDataUpdateReason,
-} from './contract.data';
+  ESourceStatus,
+  ESourcePollingChange,
+  SourcePollingInfo,
+  RelaydDataUpdate,
+  ESourceDataUpdateReason,
+} from './source.data';
 
 export {
   EFeedDataType,
@@ -23,7 +23,7 @@ export {
   FeedConfigData,
   FeedConfigSourceHandle,
   FeedConfigSource,
-  FeedContractConfigWrap,
+  FeedSourceConfigWrap,
   FeedConfigSourceData,
   OraclePriceData,
   FeedConfigTarget,

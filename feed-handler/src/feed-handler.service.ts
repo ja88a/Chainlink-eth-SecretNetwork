@@ -78,8 +78,9 @@ export class FeedHandlerService {
     const initFeedKTable = this.initKTableFeed()
       .then((result) => {
         if (result instanceof Error)
-          throw new Error(''+result);
+          return new Error(''+result);
         this.feedTable = result;
+        return result;
       })
       .catch((error) => { return new Error('Failed to init Feed KTable \n' + error); });
 
@@ -87,8 +88,12 @@ export class FeedHandlerService {
       KafkaUtils.initKStreamWithLogging(this.streamFactory, ETopic.FEED_CONFIG, this.logger),
       initFeedKTable,
       this.mergeSourceToFeedConfig(),      
-    ]).then(() => {
-      this.logger.log('Feed Stream & Table successfully started');
+    ]).then((initRes) => {
+      this.logger.log('Feed Stream & Table Started');
+      initRes.forEach(element => {
+        if (element instanceof Error)
+          this.logger.error('Failure on Feed Streams initialization \n' + element);
+      });
     }).catch((error) => {
       this.logger.error(new Error('Failed to init Feed Streams \n' + error));
     });
@@ -111,7 +116,7 @@ export class FeedHandlerService {
     //   })
     //   .to(ETopic.SOURCE_CONFIG, 'auto', 'buffer');
 
-  async mergeSourceToFeedConfig(): Promise<void>  { // KStream | Error
+  async mergeSourceToFeedConfig(): Promise<KStream | Error>  { // 
     const sourceConfigTopic = ETopic.SOURCE_CONFIG;
     const sourceConfigStream: KStream = this.streamFactory.getKStream(sourceConfigTopic);
 
@@ -146,7 +151,7 @@ export class FeedHandlerService {
           KafkaUtils.castError(ETopic.ERROR_CONFIG, EErrorType.SOURCE_CONFIG_MERGE_FAIL, feedId, sourceConfigRecord, feedConfigMerged, 'Failed to merge Source config update in Feed', undefined, this.logger);
       })
 
-    return sourceConfigStream.start(
+    await sourceConfigStream.start(
         () => { // kafka success callback
           this.logger.debug('kStream on \'' + sourceConfigTopic + '\' for merging configs ready. Started');
         },
@@ -162,6 +167,7 @@ export class FeedHandlerService {
       // .catch((error) =>{
       //   return new Error('Failed to initiate contract config stream for merging in feed config \n'+ error);
       // });
+    return sourceConfigStream;
   }
 
   async initKTableFeed(): Promise<KTable | Error> {
@@ -190,20 +196,21 @@ export class FeedHandlerService {
     // });
 
     //const outputStreamConfig: KafkaStreamsConfig = null;
-    return topicTable.start(
+    await topicTable.start(
       () => {
         this.logger.debug('kTable  on \'' + topicName + '\' ready. Started');
 //        this.feedTable = topicTable;
       },
       (error) => {
         //this.logger.error('Failed to start kTable for \'' + topicName + '\'\n' + error);
-        throw new Error('Failed to start kTable for \'' + topicName + '\' \n' + error);
+        this.logger.error('' + new Error('Failed to start kTable for \'' + topicName + '\' \n' + error));
       },
       // false,
       // outputStreamConfig
     )
-    .then(() => { return topicTable })
-    .catch((error) => { return new Error('Failed to init Feed config kTable on \'' + topicName + '\' \n' + error) });
+    // .then(() => { return topicTable })
+    // .catch((error) => { return new Error('Failed to init Feed config kTable on \'' + topicName + '\' \n' + error) });
+    return topicTable;
   }
 
   async loadFeedFromTable(keyId: string, kTable: KTable = this.feedTable, entityName: string = 'feed config'): Promise<FeedConfig | Error> {

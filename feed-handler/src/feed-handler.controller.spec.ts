@@ -22,7 +22,7 @@ describe('ClRelayController', () => {
   describe('Test adding a null price feed config', () => {
     it('should return a client error', () => {
       //expect(appController.addFeedPricePair(null)).toThrowError();
-      expect(appController.addFeedPricePair(null).then((result) => { console.error('unexpected result ' + result) })).toThrow();
+      expect(appController.addFeedPrice(null).then((result) => { console.error('unexpected result ' + result) })).toThrow();
       //toBe<string>('Chainlink Relayer here');
     });
   });
@@ -30,7 +30,7 @@ describe('ClRelayController', () => {
   describe('Test adding a new valid price feed config 1', () => {
     it('should return a client error', () => {
       console.log('Test adding price feed config:\n' + JSON.stringify(feedConfigPrice_ok_1_btcusd_noproxy))
-      expect(appController.addFeedPricePair(feedConfigPrice_ok_1_btcusd_noproxy)
+      expect(appController.addFeedPrice(feedConfigPrice_ok_1_btcusd_noproxy)
         .then((result) => { console.error('unexpected result ' + result) })).toThrow();
     });
   });
@@ -38,7 +38,7 @@ describe('ClRelayController', () => {
   describe('Test adding a new min default valid price feed config 2', () => {
     it('should return a client error', () => {
       console.log('Test adding price feed config 2:\n' + JSON.stringify(feedConfigPrice_ok_min_1_btcusd))
-      expect(appController.addFeedPricePair(feedConfigPrice_ok_min_1_btcusd)
+      expect(appController.addFeedPrice(feedConfigPrice_ok_min_1_btcusd)
         .then((result) => { console.error('unexpected result ' + result) })).toThrow();
     });
   });

@@ -32,10 +32,10 @@ export class EthConnectTestService {
     } else {
       const networkId = this.configService.get<string>('ETH_PROVIDER_NETWORK_ID');
       provider = ethers.getDefaultProvider(networkId, {
-        etherscan: this.configService.get<string>('ETHERSCAN_API_KEY'),
+        etherscan: this.configService.get<string>('ETH_ETHERSCAN_API_KEY'),
         infura: {
-          projectId: this.configService.get<string>('INFURA_PROJECT_ID'),
-          projectSecret: this.configService.get<string>('INFURA_PROJECT_SECRET'),
+          projectId: this.configService.get<string>('ETH_INFURA_PROJECT_ID'),
+          projectSecret: this.configService.get<string>('ETH_INFURA_PROJECT_SECRET'),
         },
       });
     }

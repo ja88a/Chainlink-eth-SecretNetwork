@@ -263,7 +263,7 @@ export class RelaydConfigService {
 
   // _______________________________________________________
   //
-  // Retries on Source Contracts
+  // Source Retries on Contracts
   // 
 
   get maxRecastNetworkSourceNotMatching(): number {
@@ -280,7 +280,7 @@ export class RelaydConfigService {
 
   // _______________________________________________________
   //
-  // Limits & Allowances
+  // Source Limits & Allowances
   // 
 
   get sourceIssueMaxNumber(): number {
@@ -307,6 +307,7 @@ export class RelaydConfigService {
     return this.configService.get<number>('SOURCE_NB_PERIODIC_QUERIER', this.default.SOURCE_NB_PERIODIC_QUERIER);
   }
 
+  
   // _______________________________________________________
   //
   // Secret Network connection

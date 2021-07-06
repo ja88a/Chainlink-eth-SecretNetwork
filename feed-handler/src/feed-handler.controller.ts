@@ -36,26 +36,32 @@ export class FeedHandlerController { // implements OnModuleInit
   // $ curl -d '{"id":"scrtusd", "name":"SCRT/USD price feed", "updateMode":"listen"}' -H "Content-Type: application/json" -X POST http://localhost:3000/relay/feed/price
   @Post('/relay/feed/price')
   @UseFilters(HttpExceptionFilterCust.for())
-  async addFeedPricePair(@Body() feedConfig: FeedConfig): Promise<RelayActionResult> {
-    this.logger.log('Request for adding a new Price Data Feed: ' + feedConfig.id);
+  async addFeedPrice(@Body() feedConfig: FeedConfig): Promise<RelayActionResult> {
+    this.logger.log('Request for adding a new Data Feed: ' + feedConfig.id);
     this.logger.debug('Payload:\n' + JSON.stringify(feedConfig));
 
-    const valid = validateOrReject(feedConfig, VALID_OPT).catch(errors => {
-      throw this.httpExceptionService.clientError(HttpStatus.BAD_REQUEST, feedConfig, errors);
-    });
+    const valid = validateOrReject(feedConfig, VALID_OPT) // 
+      .catch(errors => {
+        throw this.httpExceptionService.clientError(HttpStatus.BAD_REQUEST, feedConfig, errors);
+      });
 
-    return await valid.then(async () => {
-      return this.feedHandlerService.createFeed(feedConfig)
-        .then((result) => {
-          if (result instanceof Error)
-            throw result;
-          this.logger.log('Price Data Feed creation result: ' + JSON.stringify(result));
-          return result;
-        })
-        .catch((error) => {
-          throw this.httpExceptionService.serverError(HttpStatus.INTERNAL_SERVER_ERROR, feedConfig, error);
-        });
-    });
+    return await valid
+      .then(async () => {
+        return this.feedHandlerService.createFeed(feedConfig)
+          .then((result) => {
+            if (result instanceof Error)
+              throw new Error('Failed to create data feed \n'+result);
+            this.logger.log('Data Feed submission result \n' + JSON.stringify(result));
+            return result;
+          })
+          .catch((error) => {
+            throw new Error('Failure on Feed creation \n'+error.stack);
+//            throw this.httpExceptionService.serverError(HttpStatus.INTERNAL_SERVER_ERROR, feedConfig, error.stack);
+          });
+      })
+      .catch((error) => {
+        throw this.httpExceptionService.serverError(HttpStatus.INTERNAL_SERVER_ERROR, feedConfig, error);
+      });
   }
 
 }

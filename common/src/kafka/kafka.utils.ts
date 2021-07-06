@@ -152,7 +152,7 @@ export class KafkaUtils {
         logger.debug('kStream on \'' + topicName + '\' ready. Started');
       },
       (error) => {
-        logger.error('Kafka Failed to start Stream on \'' + topicName + '\'\n' + error);
+        logger.error('Kafka Failed to start Stream on \'' + topicName + '\'\n' + error.stack);
       }
     );
     return topicStream;

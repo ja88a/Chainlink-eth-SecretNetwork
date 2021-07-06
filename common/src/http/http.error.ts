@@ -1,15 +1,16 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
-// import { Catch } from '@nestjs/common/decorators/core/catch.decorator';
-// import { Injectable } from '@nestjs/common/decorators/core/injectable.decorator';
-// import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
-// import { HttpException } from '@nestjs/common/exceptions/http.exception';
-// import { ExceptionFilter } from '@nestjs/common/interfaces/exceptions/exception-filter.interface';
-// import { ArgumentsHost } from '@nestjs/common/interfaces/features/arguments-host.interface';
-// import { Logger } from '@nestjs/common/services/logger.service';
+//import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { Catch } from '@nestjs/common/decorators/core/catch.decorator';
+import { Injectable } from '@nestjs/common/decorators/core/injectable.decorator';
+import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
+import { HttpException } from '@nestjs/common/exceptions/http.exception';
+import { ExceptionFilter } from '@nestjs/common/interfaces/exceptions/exception-filter.interface';
+import { ArgumentsHost } from '@nestjs/common/interfaces/features/arguments-host.interface';
+import { Logger } from '@nestjs/common/services/logger.service';
+
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 
-import { EExternalCommunicationMode } from '../config/relayd.config';
+import { EExternalCommunicationMode, RelaydConfigService } from '../config/relayd.config';
 
 @Catch(Error)
 export class HttpExceptionFilterCust implements ExceptionFilter {
@@ -33,13 +34,7 @@ export class HttpExceptionFilterCust implements ExceptionFilter {
 
   constructor(instanceId?: string) {
     const configService = new ConfigService();
-    if (configService === undefined) {
-      this.logger.warn('No Config available');
-      this.errorComMode = EExternalCommunicationMode.default
-    }
-    else {
-      this.errorComMode = configService.get<string>('ERROR_COM_MODE') || EExternalCommunicationMode.default;
-    }
+    this.errorComMode = configService.get<string>('APP_EXTERNAL_COM_MODE') || EExternalCommunicationMode.default;
     this.logger.log('External errors communication mode for \''+instanceId+'\': '+this.errorComMode);
   }
 
@@ -101,8 +96,8 @@ export class HttpExceptionFilterCust implements ExceptionFilter {
 export class HttpExceptionService {
   private readonly errorExtMode: string;
 
-  constructor(private configService: ConfigService) {
-    this.errorExtMode = configService.get<string>('ERROR_COM_MODE') || EExternalCommunicationMode.default;
+  constructor(private configService: RelaydConfigService) {
+    this.errorExtMode = configService.appExternalCommunicationMode;// || EExternalCommunicationMode.default;
   }
 
   deny(): HttpException {

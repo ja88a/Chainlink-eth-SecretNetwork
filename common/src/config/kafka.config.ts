@@ -127,7 +127,7 @@ export enum ETopic {
   FEED_CONFIG = 'relayd.feed',
   SOURCE_CONFIG = 'relayd.source',
   SOURCE_DATA = 'relayd.source.data',
-  SOURCE_POLLING = 'relayd.source.polling'
+  SOURCE_POLLING = 'relayd.source.polling',
 }
 
 export type ITopicConfig = {
@@ -144,7 +144,6 @@ export const configKafkaTopics: Map<String, ITopicConfig> = new Map([
   [ETopic.ERROR_SOURCE, { name: ETopic.ERROR_SOURCE, numPartitions: 1, replicationFactor: 1 }],
   [ETopic.FEED_CONFIG, { name: ETopic.FEED_CONFIG, numPartitions: 1, replicationFactor: 1 }],
   [ETopic.SOURCE_CONFIG, { name: ETopic.SOURCE_CONFIG, numPartitions: 1, replicationFactor: 1 }],
-//  [ETopics.CONTRACT_CONFIG, { name: ETopics.CONTRACT_CONFIG, numPartitions: 1, replicationFactor: 1 }],
   [ETopic.SOURCE_DATA, { name: ETopic.SOURCE_DATA, numPartitions: 1, replicationFactor: 1 }],
   [ETopic.SOURCE_POLLING, { name: ETopic.SOURCE_POLLING, numPartitions: 1, replicationFactor: 1 }],
 ]);

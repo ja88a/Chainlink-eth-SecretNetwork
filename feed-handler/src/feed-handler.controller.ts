@@ -18,13 +18,18 @@ export class FeedHandlerController { // implements OnModuleInit
   private readonly logger = new Logger(FeedHandlerController.name, true);
 
   async onModuleInit() {
-    this.feedHandlerService.init();
+    this.feedHandlerService.init()
+      .catch(async (error) => {
+        this.logger.error('Feed Handler service failed to init. Stopping it \n'+error);
+        await this.onApplicationShutdown('INIT_FAIL');
+      });
   }
 
-  onApplicationShutdown(signal: string) {
+  async onApplicationShutdown(signal: string) {
     this.logger.warn('Shutting down Feed Handler on signal ' + signal); // e.g. "SIGINT"
     if (this.feedHandlerService)
-      this.feedHandlerService.shutdown(signal);
+      await this.feedHandlerService.shutdown(signal)
+        .catch((error) => this.logger.error('Improper shutdown \n'+error));
   }
 
   /**
@@ -40,24 +45,15 @@ export class FeedHandlerController { // implements OnModuleInit
     this.logger.log('Request for adding a new Data Feed: ' + feedConfig.id);
     this.logger.debug('Payload:\n' + JSON.stringify(feedConfig));
 
-    const valid = validateOrReject(feedConfig, VALID_OPT) // 
-      .catch(errors => {
-        throw this.httpExceptionService.clientError(HttpStatus.BAD_REQUEST, feedConfig, errors);
+    const valid = await validateOrReject(feedConfig, VALID_OPT) // 
+      .catch(error => {
+        throw this.httpExceptionService.clientError(HttpStatus.BAD_REQUEST, feedConfig, error);
       });
 
-    return await valid
-      .then(async () => {
-        return this.feedHandlerService.createFeed(feedConfig)
-          .then((result) => {
-            if (result instanceof Error)
-              throw new Error('Failed to create data feed \n'+result);
-            this.logger.log('Data Feed submission result \n' + JSON.stringify(result));
-            return result;
-          })
-          .catch((error) => {
-            throw new Error('Failure on Feed creation \n'+error.stack);
-//            throw this.httpExceptionService.serverError(HttpStatus.INTERNAL_SERVER_ERROR, feedConfig, error.stack);
-          });
+    return await this.feedHandlerService.createFeed(feedConfig)
+      .then((result) => {
+        this.logger.log('Feed submission result \n' + JSON.stringify(result));
+        return result;
       })
       .catch((error) => {
         throw this.httpExceptionService.serverError(HttpStatus.INTERNAL_SERVER_ERROR, feedConfig, error);

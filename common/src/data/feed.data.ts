@@ -16,9 +16,11 @@ import {
   IsDate,
   IsDateString,
   IsNumber,
+  IsString,
 } from 'class-validator';
 import { 
   ESourceCastReason, 
+  ESourceDataUpdateReason, 
   ESourceStatus 
 } from './source.data';
 
@@ -116,7 +118,7 @@ export enum EFeedSourceFunction {
 /**
  * Specification of the Source data
  */
-export class FeedConfigSourceData {
+export class FeedSourceData {
   /** Data path to the field value - Not Supported */
   // TODO source data's path-based extraction support
   @IsOptional()
@@ -131,8 +133,9 @@ export class FeedConfigSourceData {
 
   /** Last seen source data value */
   @IsOptional()
-//  @IsNumber()
-  value?: any; //number;
+  @IsNumber()
+  @IsPositive()
+  value: number; //number;
 
   /** Last time the source data value was reported as changed */
   // TODO Review if moving to more optimal epoch time (number)
@@ -140,7 +143,7 @@ export class FeedConfigSourceData {
   // @IsPositive()
   // time?: number;
   @IsDateString()
-  time?: string;
+  time: string; // TODO ISO date & time OR epoch number?
 
   // TODO Review if timeChecked & timeChanged on source data shall be considered
 }
@@ -148,7 +151,7 @@ export class FeedConfigSourceData {
 /**
  * @deprecated use FeedConfigSourceData instead 
  */
- export class OraclePriceData extends FeedConfigSourceData {
+ export class OraclePriceData extends FeedSourceData {
   @IsNumber()
   value: number = 0;
 
@@ -157,7 +160,7 @@ export class FeedConfigSourceData {
   decimals: number;
 
   @IsDateString()
-  time: string; // ISO date & time OR epoch number?
+  time: string; // TODO ISO date & time OR epoch number?
 
   @IsOptional()
   @IsNumber() 
@@ -178,7 +181,7 @@ export class ProcessingIssue {
   info?: string;
 } 
 
-export class FeedConfigSourceHandle {
+export class FeedSourceHandle {
   @IsDefined()
   @Length(6, 40) 
   handler: string;
@@ -266,15 +269,15 @@ export class FeedConfigSource {
   @IsOptional()
   //@ValidateIf(o => o.status == EContractStatus.OK)
   @ValidateNested()
-  @Type(() => FeedConfigSourceData)
-  data?: FeedConfigSourceData;
+  @Type(() => FeedSourceData)
+  data?: FeedSourceData;
 
   @IsOptional()
   //@ValidateIf(o => o.status == EContractStatus.OK)
   @ArrayMaxSize(20) // RelaydConfig.contractSourceMaxHandle
   @ValidateNested()
-  @Type(() => FeedConfigSourceHandle)
-  handle?: FeedConfigSourceHandle[];
+  @Type(() => FeedSourceHandle)
+  handle?: FeedSourceHandle[];
 };
 
 /** Supported target contracts' network */
@@ -298,7 +301,7 @@ export enum EFeedTargetType {
 /**
  * Data of a relayed data feed Target
  */
-export class FeedConfigTargetData {
+export class FeedTargetData {
   /** Number of Decimals for the data values */
   // TODO Convert value(s) if source & target decimals differ
   @IsOptional()
@@ -363,8 +366,8 @@ export class FeedConfigTarget {
 //  @IsOptional()
   @ValidateIf(o => o.status === ESourceStatus.OK)
   @ValidateNested()
-  @Type(() => FeedConfigTargetData)
-  data?: FeedConfigTargetData;
+  @Type(() => FeedTargetData)
+  data?: FeedTargetData;
 };
 
 /**
@@ -432,11 +435,12 @@ export class FeedConfig {
 
 
 /** 
- * Technical wrapping of FeedConfigSource to propagate polling & data updates on a source contract
- * at the config level 
+ * Technical wrapping of FeedConfigSource to propagate handling updates on a source contract
+ * at the config level, e.g. data polling status
  */
  export class FeedSourceConfigWrap {
-  @IsDefined() 
+  @IsDefined()
+  @MaxLength(40)
   feedId: string;
 
   @IsOptional()
@@ -444,8 +448,40 @@ export class FeedConfig {
   @Type(() => FeedConfigSource)
   source?: FeedConfigSource;
 
+  // @IsOptional()
+  // @ValidateNested()
+  // @Type(() => FeedConfigTarget)
+  // target?: FeedConfigTarget;
+} 
+
+/**
+ * 
+ */
+export class FeedSourceDataUpdate {
+  @IsDefined()
+  @MaxLength(40)
+  feedId: string;
+
+  @IsOptional()
+  @MaxLength(40)
+  sourceId?: string;
+
   @IsOptional()
   @ValidateNested()
-  @Type(() => FeedConfigTarget)
-  target?: FeedConfigTarget;
+  @Type(() => FeedSourceData)
+  source?: FeedSourceData;
+
+  // @IsOptional()
+  // @ValidateNested()
+  // @Type(() => FeedTargetData)
+  // target?: FeedTargetData;
+
+  @IsOptional()
+  @IsEnum(ESourceDataUpdateReason)
+  reason?: ESourceDataUpdateReason;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  info?: string;
 } 

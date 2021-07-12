@@ -9,7 +9,7 @@ import {
   RelaydConfigService 
 } from '@relayd/common';
 import { ProviderNetwork } from '@relayd/common';
-import { HttpExceptionFilterCust, HttpExceptionService, RpcExceptionFilterCust } from '@relayd/common';
+import { HttpExceptionFilterCust, RpcExceptionFilterCust } from '@relayd/common';
 
 import { Controller, UseFilters } from '@nestjs/common/decorators/core';
 import { Get } from '@nestjs/common/decorators/http';
@@ -17,7 +17,7 @@ import { Logger } from '@nestjs/common/services/logger.service';
 
 import { MessagePattern } from '@nestjs/microservices/decorators/message-pattern.decorator';
 import { Payload } from '@nestjs/microservices/decorators/payload.decorator';
-import { KafkaMessage, RecordMetadata } from '@nestjs/microservices/external/kafka.interface';
+import { KafkaMessage } from '@nestjs/microservices/external/kafka.interface';
 import { validate } from 'class-validator';
 
 @Controller()
@@ -26,17 +26,23 @@ export class EthConnectController {
 
   constructor(
     private readonly ethConnectService: EthConnectService,
-    private readonly httpExceptionService: HttpExceptionService,
+//    private readonly httpExceptionService: HttpExceptionService,
     private readonly relaydConfig: RelaydConfigService,
   ) { }
 
   async onModuleInit(): Promise<void> {
-    this.ethConnectService.init();
+    this.ethConnectService.init()
+      .catch(async (error) => {
+        this.logger.error('ETH Connection service failed to init. Stopping it \n'+error);
+        await this.onApplicationShutdown('INIT_FAIL');
+      });
   }
 
   async onApplicationShutdown(signal: string): Promise<void> {
     this.logger.warn('Shutting down ETH Connect on signal ' + signal);
-    if (this.ethConnectService) await this.ethConnectService.shutdown(signal);
+    if (this.ethConnectService) 
+      await this.ethConnectService.shutdown(signal)
+        .catch((error) => this.logger.error('Failed to properly shut down \n'+error));
     RpcExceptionFilterCust.shutdown();
   }
 
@@ -61,7 +67,7 @@ export class EthConnectController {
 
   @MessagePattern(ETopic.SOURCE_CONFIG)
   @UseFilters(RpcExceptionFilterCust.for(EthConnectController.name))
-  handleSourceConfig(@Payload() message: KafkaMessage/*, @Ctx() context: KafkaContext*/): void {
+  async handleSourceConfig(@Payload() message: KafkaMessage/*, @Ctx() context: KafkaContext*/): Promise<void> {
     //const originalMessage: KafkaMessage = context.getMessage();
     // const { headers, offset, timestamp } = originalMessage;
     //this.logger.debug(`Receiving msg on topic '${context.getTopic()}'. Value:\n${JSON.stringify(originalMessage)}`);
@@ -76,128 +82,114 @@ export class EthConnectController {
     // 2. Contract config handling
     // 3. Update the topic(s) with processing results
 
-    if (sourceConfig == undefined || sourceConfig.status == ESourceStatus.FAIL) {
+    if (sourceConfig === undefined || sourceConfig.status == ESourceStatus.FAIL) {
       this.logger.warn('Skipping Source \'' + sourceConfig?.contract + '\' for feed \'' + feedId + '\' with status \'' + sourceConfig?.status + '\'');
       return;
     }
 
-    // const valid = validateOrReject(contractSource, VALID_OPT).catch((errors) => {
-    //   throw new RpcException({ input: contractSource, message: 'Input object validation failed', error: errors });
-    // });
-    const validInput = validate(sourceConfig) // TODO Fix the validation issue on contract config, VALID_OPT
+    const validInput = await validate(sourceConfig) // TODO Fix the validation issue on contract config, VALID_OPT
       .then((errorValid) => {
         this.logger.debug('Source validation result:' + JSON.stringify(errorValid));
         if (errorValid.length > 0)
-          throw new Error('Input source validation failed with ' + errorValid.length + ' errors\n' + JSON.stringify(errorValid));
-        return true;
+          return new Error('Input source validation failed with ' + errorValid.length + ' errors\n' + JSON.stringify(errorValid));
+        return sourceConfig;
       })
       .catch((error) => {
-        sourceConfig.status = ESourceStatus.FAIL;
-        this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, sourceConfig,
-          ESourceCastReason.HANDLING_VALIDATION_FAIL, ''+error)
-          .then(() => {
-            this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_INVALID, sourceConfig, feedId, new Error('Validation of input source Contract has failed'));
-          });
-        return false;
+        return new Error('Failed to validate Source \''+sourceConfig.contract+'\' for \''+feedId+'\' \n' +error);
       });
 
-    validInput.then(async (isValid) => {
-      if (!isValid)
-        return;
+    if (validInput instanceof Error) {
+      sourceConfig.status = ESourceStatus.FAIL;
 
-      // Source contract's network compatibility
-      const isCompatible = await this.ethConnectService.checkNetworkMatch(sourceConfig.network);
-      if (!isCompatible) {
-        const countLastNetworkCompatibilityIssues = 1 + this.ethConnectService.countIssueInLastRow(
-          sourceConfig, ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING);
-        const msg = ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING + " No network support found for Source Contract of '"
-          + feedId + "'. Attempt '" + countLastNetworkCompatibilityIssues + '/' + this.relaydConfig.maxRecastNetworkSourceNotMatching;
+      await this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, sourceConfig,
+        ESourceCastReason.HANDLING_VALIDATION_FAIL, ''+validInput)
+        .then(async () => {
+          await this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_INVALID, sourceConfig, feedId, new Error('Validation of input source Contract has failed \n'+validInput));
+        });
+
+      return;
+    }
+
+    // Source contract's network compatibility
+    const isCompatible = await this.ethConnectService.checkNetworkMatch(sourceConfig.network);
+    if (!isCompatible) {
+      const countLastNetworkCompatibilityIssues = 1 + this.ethConnectService.countIssueInLastRow(
+        sourceConfig, ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING);
+      const msg = ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING + " No network support found for Source Contract of '"
+        + feedId + "'. Attempt '" + countLastNetworkCompatibilityIssues + '/' + this.relaydConfig.maxRecastNetworkSourceNotMatching;
+      this.logger.warn(msg);
+
+      const keepTrying = countLastNetworkCompatibilityIssues < this.relaydConfig.maxRecastNetworkSourceNotMatching;
+      if (!keepTrying)
+        sourceConfig.status = ESourceStatus.FAIL;
+
+      const castResult = await this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, sourceConfig,
+        ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING, msg)
+        .catch((error) => {
+          return new Error('Failed to cast source \'' + sourceConfig.contract + '\' update ('+ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING+' fail)\n' + error);
+        })
+        .finally(() => {
+          if (!keepTrying)
+            this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_NETWORK_NOSUPPORT, sourceConfig, feedId, new Error('No network support found for contract \'' + sourceConfig.contract + '\' of feed \'' + feedId + '\'\n' + msg));
+        });
+
+      if (castResult instanceof Error) {
+        throw new Error('Failed to cast Source network support issue \n'+castResult);
+        //this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_GENERAL_FAIL, sourceConfig, feedId, castResult);
+      }
+
+      return;
+    }
+
+    // Handle the contract config
+    const contractSourceUpd = await this.ethConnectService
+      .handleSourceContract(sourceConfig, feedId)
+      .then(async (configUpd) => {
+        if (configUpd === undefined) {
+          this.logger.debug('No further source handling required for \''+sourceConfig.contract+'\'');
+          return undefined;
+        }
+
+        return await this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, configUpd,
+          ESourceCastReason.HANDLING_SUCCESS, 'Status: '+configUpd.status)
+          .then(() => {
+            return configUpd;
+          });
+      })
+      .catch(async (error) => {
+        const countLastSerieOfHandlingErrors = 1 + this.ethConnectService.countIssueInLastRow(sourceConfig, ESourceCastReason.HANDLING_FAILED);
+        const msg = ESourceCastReason.HANDLING_FAILED + ': Failed to handle Source \'' + sourceConfig.contract + '\' for \'' + feedId +
+          '\'. Attempt ' + (countLastSerieOfHandlingErrors) + '/' + this.relaydConfig.maxRecastSourceHandlingFail + ' \n' + error;
+        
         this.logger.warn(msg);
 
-        const keepTrying = countLastNetworkCompatibilityIssues < this.relaydConfig.maxRecastNetworkSourceNotMatching;
+        const keepTrying = countLastSerieOfHandlingErrors < this.relaydConfig.maxRecastSourceHandlingFail;
         if (!keepTrying)
           sourceConfig.status = ESourceStatus.FAIL;
 
-        const castResult = this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, sourceConfig,
-          ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING, msg)
-          .then((result) => {
-            if (result instanceof Error)
-              throw result;
+        return await this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, sourceConfig,
+          ESourceCastReason.HANDLING_FAILED, msg)
+          .then(() => {
             return sourceConfig;
           })
           .catch((error) => {
-            return new Error('Failed to cast source \'' + sourceConfig.contract + '\' update ('+ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING+' fail)\n' + error);
-          })
-          .finally(() => {
+            return new Error('Failed to cast source \'' + sourceConfig.contract + '\' config update (failure \''+ESourceCastReason.HANDLING_FAILED+'\') \n' + error);
+          }).finally(async() => {
             if (!keepTrying)
-              this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_NETWORK_NOSUPPORT, sourceConfig, feedId, new Error('No network support found for contract \'' + sourceConfig.contract + '\' of feed \'' + feedId + '\'\n' + msg));
+              await this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_HANDLING_FAIL, sourceConfig, feedId, new Error(msg));
           });
-
-        if (typeof castResult == Error.name)
-          throw castResult;
-        return;
-      }
-
-      // Handle the contract config
-      const contractSourceUpd = await this.ethConnectService
-        .handleSourceContract(sourceConfig)
-        .then((configUpd) => {
-          if (configUpd instanceof Error)
-            throw configUpd;
-          if (configUpd === undefined) {
-            this.logger.debug('No source handling required for \''+sourceConfig.contract+'\'');
-            return undefined;
-          }
-          const castResult = this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, configUpd,
-            ESourceCastReason.HANDLING_SUCCESS, 'Status: '+configUpd.status)
-            .then((result: RecordMetadata[] | Error) => {
-              if (result instanceof Error)
-                throw result;
-              return configUpd;
-            })
-            .catch((error) => {
-              return new Error('Failed to cast source \'' + configUpd.contract + '\' config updated (success)\n' + error);
-            });
-
-          if (castResult instanceof Error)
-            throw castResult;
-
-          return castResult;
-        })
-        .catch((error) => {
-          const countLastSerieOfHandlingErrors = 1 + this.ethConnectService.countIssueInLastRow(sourceConfig, ESourceCastReason.HANDLING_FAILED);
-          const msg = ESourceCastReason.HANDLING_FAILED + ': Failed to handle Source \'' + sourceConfig.contract + '\' for \'' + feedId +
-            '\'. Attempt ' + (countLastSerieOfHandlingErrors) + '/' + this.relaydConfig.maxRecastSourceHandlingFail + ' \n' + error;
-          this.logger.warn(msg);
-
-          const keepTrying = countLastSerieOfHandlingErrors < this.relaydConfig.maxRecastSourceHandlingFail;
-          if (!keepTrying)
-            sourceConfig.status = ESourceStatus.FAIL;
-
-          return this.ethConnectService.castSourceConfig(ETopic.SOURCE_CONFIG, feedId, sourceConfig,
-            ESourceCastReason.HANDLING_FAILED, msg)
-            .then((castResult: RecordMetadata[] | Error) => {
-              if (castResult instanceof Error)
-                throw castResult;
-              return sourceConfig;
-            })
-            .catch((error) => {
-              return new Error('Failed to cast source \'' + sourceConfig.contract + '\' config update ('+ESourceCastReason.HANDLING_FAILED+' fail)\n' + error);
-            }).finally(() => {
-              if (!keepTrying)
-                this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_HANDLING_FAIL, sourceConfig, feedId, new Error(msg));
-            });
-        });
+      });
       
-      if (contractSourceUpd instanceof Error)
-        throw contractSourceUpd;
-      
-      if (contractSourceUpd !== undefined)
-        this.logger.log('ETH Source \'' + sourceConfig.contract + '\' for \'' + feedId + '\' updated & cast \n' + JSON.stringify(contractSourceUpd || sourceConfig));
-        
-    }).catch((error) => {
-      this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_GENERAL_FAIL, sourceConfig, feedId, error);
-    });
+    if (contractSourceUpd instanceof Error) {
+      this.logger.error('Failed to handle source config \''+sourceConfig.contract+'\' for feed \''+feedId+'\' Casting the general source config error \n'+contractSourceUpd);
+      await this.ethConnectService.castErrorSourceConfig(EErrorType.SOURCE_CONFIG_GENERAL_FAIL, sourceConfig, feedId, contractSourceUpd);
+      return;
+    }
+
+    if (contractSourceUpd === undefined)
+      this.logger.debug('ETH Source \'' + sourceConfig.contract + '\' for \'' + feedId + '\' processed');
+    else
+      this.logger.log('ETH Source \'' + sourceConfig.contract + '\' for \'' + feedId + '\' updated & cast \n' + JSON.stringify(contractSourceUpd || sourceConfig));
   }
 
 }

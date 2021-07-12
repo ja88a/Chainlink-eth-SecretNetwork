@@ -59,7 +59,8 @@ export enum ESourcePollingChange {
 export class SourcePollingInfo {
   /** Address of the polled ETH contract */
   @IsDefined()
-  @IsEthereumAddress()  
+  @IsEthereumAddress()
+  @Length(41,43)
   source: string;
   
   /** ID of the contract handler, or issue reporter */
@@ -67,10 +68,12 @@ export class SourcePollingInfo {
   @Length(6, 40) 
   issuer: string;
 
+  /** Type of source polling change */
   @IsDefined()
   @IsEnum(ESourcePollingChange) 
   change: ESourcePollingChange;
 
+  /** Extra info about the source polling change */
   @IsOptional()
   @Length(3, 255)
   info?: string;

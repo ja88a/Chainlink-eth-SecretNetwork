@@ -35,14 +35,16 @@ export const convertContractInputValue: any =
   
   const divider = converter?.divider;
 
-  if (type == ValueType.DATE) { 
-    switch(converter?.date) {
+  if (type == ValueType.DATE) {
+    const timeMs = value* 1000;
+    const dateFormat = converter?.date ? converter.date : ValueTypeDate.default;
+    switch(dateFormat) {
       case ValueTypeDate.DATE_EPOCH_MS:
-        return value* 1000;
+        return timeMs;
       case ValueTypeDate.DATE_ISO:
-        return new Date(value * 1000).toISOString();
+        return new Date(timeMs).toISOString();
       case ValueTypeDate.DATE_UTC:
-        return new Date(value * 1000).toUTCString();
+        return new Date(timeMs).toUTCString();
       default:
         let resultNumber: number = +value;
         return resultNumber;

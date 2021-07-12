@@ -1,11 +1,12 @@
 import { Logger } from "@nestjs/common/services/logger.service";
 import { ClientKafka } from "@nestjs/microservices/client/client-kafka";
-import { Admin, ITopicConfig, Kafka, KafkaConfig, Producer } from "@nestjs/microservices/external/kafka.interface";
+import { Admin, ITopicConfig, KafkaConfig, Producer } from "@nestjs/microservices/external/kafka.interface";
 import { KafkaOptions } from "@nestjs/microservices/interfaces/microservice-configuration.interface";
 import { KafkaStreamsConfig, KStream } from "kafka-streams";
 import { deepCopyJson } from "../utils/misc.utils";
 import { configKafka, configKafkaClient, configKafkaNative, configKafkaTopics, ETopic } from "../config/kafka.config";
 import { EErrorType } from "./rpc.error";
+import { Kafka } from "kafkajs";
 
 export enum RelaydKClient {
   AIO = 'relayd.aio',
@@ -91,7 +92,7 @@ export class KafkaUtils {
         resultStore.push(result);
       }
 
-      return Promise.all(resultStore)
+      return await Promise.all(resultStore)
         .then((results: boolean[]) => {
           let finalResult = true;
           results.forEach(element => {
@@ -99,7 +100,7 @@ export class KafkaUtils {
           });
           return finalResult;
         }).catch((error) => {
-          throw new Error('Failed to create default Topics\n' + error);
+          throw new Error('Failed to create a default Topic \n' + error);
         });
     } catch (error) {
       throw new Error('Failed to create missing default Topics\n' + error);
@@ -131,7 +132,7 @@ export class KafkaUtils {
   /** 
    * Initialize a Stream on a given topic 
    */
-  static async initKStreamWithLogging(streamFactory, topicName: string, logger: Logger): Promise<KStream | Error> {
+  static async initKStreamWithLogging(streamFactory, topicName: string, logger: Logger): Promise<KStream> {
     logger.debug('Creating kStream for \'' + topicName + '\'');
     const topicStream: KStream = streamFactory.getKStream(topicName);
 
@@ -149,49 +150,50 @@ export class KafkaUtils {
     //const outputStreamConfig: KafkaStreamsConfig = null;
     await topicStream.start(
       () => {
-        logger.debug('kStream on \'' + topicName + '\' ready. Started');
+        logger.debug('Logging kStream on \'' + topicName + '\' initiated');
       },
       (error) => {
-        logger.error('Kafka Failed to start Stream on \'' + topicName + '\'\n' + error.stack);
+        throw new Error('Kafka client failed to start logging Stream records on \'' + topicName + '\'\n' + error.stack);
       }
     );
+    
     return topicStream;
   }
 
-  static castError(errorTopic: ETopic, errorType: EErrorType, key: string, input: any, prevError: any, msg?: string, kafkaProducer?: Producer, logger?: Logger) {
+  static async castError(errorTopic: ETopic, errorType: EErrorType, key: string, input: any, prevError: any, msg?: string, kafkaProducer?: Producer, logger?: Logger) {
+    const aLoger = logger === undefined ? logger : Logger;
+
     const errorInfo = {
       type: errorType,
       input: input,
       message: msg,
       error: '' + prevError,
     };
-    
+
+    aLoger.warn('Processing Error caught\n'+prevError+'\n\nCasting Error to \''+errorTopic+'\' with key \''+key+'\'\n'+JSON.stringify(errorInfo));
+
     let kProducer: Producer;
     let disconnect = false;
     if (kafkaProducer === undefined) {
       disconnect = true;
       const configKafkaClient = KafkaUtils.getConfigKafkaClient(RelaydKClient.ERR + '_generic');
-      kProducer = new Kafka(configKafkaClient).producer();
+      kProducer = (new Kafka(configKafkaClient)).producer();
     }
     else
       kProducer = kafkaProducer;
     
-    const aLoger = logger === undefined ? logger : Logger;
-
-    kProducer.connect().then(() => {
-      kProducer.send({
+    await kProducer.connect().then(async () => {
+      return await kProducer.send({
         topic: errorTopic,
         messages: [{
           key: key,
           value: JSON.stringify(errorInfo)
         }]
-      }).then(() => {
-        aLoger.warn('Error caught and cast to \''+errorTopic+'\' with key \''+key+'\'\n'+JSON.stringify(errorInfo));
-      }).catch((error) => { 
-        aLoger.error('Failed to cast error.\n'+JSON.stringify(errorInfo)+'\n'+error);
-      }); 
-    }).catch((error) => {
-      aLoger.error('Failed to kConnect to cast error\n'+errorInfo+'\n'+error);
-    }).finally(() => { if(disconnect) kProducer.disconnect()});
+      });
+    })
+    .catch((error) => {
+      aLoger.error('Failed to kConnect for casting error\n'+errorInfo+'\n'+error);
+    })
+    //.finally(() => { if (disconnect) kProducer.disconnect()});
   }
 }

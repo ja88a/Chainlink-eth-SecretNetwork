@@ -14,6 +14,9 @@ export enum EErrorType {
   SOURCE_CONFIG_HANDLING_FAIL = 'source.config.handling.fail',
   SOURCE_CONFIG_MERGE_FAIL = 'source.config.merge.fail',
   SOURCE_CONFIG_GENERAL_FAIL = 'source.config.general.fail',
+
+  SOURCE_POLLING_CAST_FAIL = 'source.polling.cast.fail',
+  SOURCE_POLLING_HANDLE_FAIL = 'source.polling.handle.fail',
 }
 
 @Catch(Error)
@@ -57,6 +60,8 @@ export class RpcExceptionFilterCust extends BaseRpcExceptionFilter {
       await this.kafka.consumer().disconnect().catch((error) => this.logger.error('Failed to disconnect kafka consumer \n' + error));
       await this.kafka.producer().disconnect().catch((error) => this.logger.error('Failed to disconnect kafka producer \n' + error));
     }
+    else 
+      this.logger.warn('No kafka initialized');
   }
 
   catch(exception: any, host: ArgumentsHost): any {

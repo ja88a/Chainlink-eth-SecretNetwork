@@ -12,6 +12,7 @@ import { Injectable } from '@nestjs/common/decorators/core/injectable.decorator'
 // TODO PROD Review settings
 export const VALID_OPT: ValidatorOptions = {
   skipMissingProperties: false,
+  forbidUnknownValues: true, // PROD: true
   whitelist: true,
   forbidNonWhitelisted: true,
   //groups: string[],
@@ -20,7 +21,6 @@ export const VALID_OPT: ValidatorOptions = {
     target: true,
     value: true,
   },
-  forbidUnknownValues: true, // PROD: true
   stopAtFirstError: true
 };
 

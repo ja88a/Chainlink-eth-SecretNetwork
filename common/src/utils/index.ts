@@ -1,5 +1,5 @@
 export {
-  convertContractInputValue,
+  ConvertContractUtils,
   ValueTypeDate,
   ConversionConfig,
   ValueType,

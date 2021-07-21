@@ -72,6 +72,9 @@ export class FeedHandlerService {
 
   private feedTable: KTable;
 
+  /**
+   * Init all kafka streams & tables required by this service
+   */
   async initStreams(): Promise<void> {
     this.logger.debug('Init Source Streams & Tables');
 
@@ -94,11 +97,67 @@ export class FeedHandlerService {
     this.logger.log('Feed Streams & Tables started');
   }
 
+  async initKTableFeed(): Promise<KTable> {
+    const topicName = ETopic.FEED_CONFIG;
+    this.logger.debug('Creating kTable  for \'' + topicName + '\'');
+
+    const keyMapperEtl = message => {
+      const feedConfig: FeedConfig = JSON.parse(message.value.toString());
+      this.logger.debug('Feed config kTable \'' + topicName + '\' entry\n' + JSON.stringify(feedConfig));
+      return {
+        key: feedConfig.id, // message.key && message.key.toString(),
+        value: feedConfig
+      };
+    };
+
+    const topicTable: KTable = this.streamFactory.getKTable(topicName, keyMapperEtl, null);
+
+    //const outputStreamConfig: KafkaStreamsConfig = null;
+    await topicTable.start(
+      () => {
+        this.logger.debug('kTable  on \'' + topicName + '\' ready. Started');
+      },
+      (error) => {
+        //this.logger.error('Failed to start kTable for \'' + topicName + '\'\n' + error);
+        throw new Error('Failed to run kTable for \'' + topicName + '\' \n' + error);
+      },
+      // false,
+      // outputStreamConfig
+    )
+    
+    return topicTable;
+  }
+
   /**
+   * 
+   * @param keyId 
+   * @param kTable 
+   * @param entityName 
+   * @returns 
+   */
+  async loadFeedFromTable(keyId: string, kTable: KTable = this.feedTable, entityName: string = 'Feed config'): Promise<FeedConfig> {
+    //    this.logger.debug('Request for loading ' + entityName + ' \'' + keyId + '\' from kTable');
+    //    this.logger.debug('kTable info\n== Stats:\n'+ JSON.stringify(kTable.getStats()) +'\n== State:\n' + JSON.stringify(kTable.getTable()));
+    return await kTable.getStorage().get(keyId)
+      .then((feedConfig) => {
+        if (!feedConfig) {
+          this.logger.debug('No ' + entityName + ' \'' + keyId + '\' found in kTable');
+          return undefined;
+        }
+        this.logger.debug('Found ' + entityName + ' \'' + keyId + '\' in kTable\n' + JSON.stringify(feedConfig));
+        return feedConfig;
+      })
+      .catch((error) => {
+        throw new Error('Failed to extract ' + entityName + ' \'' + keyId + '\' from kTable \n' + error);
+      });
+  }
+
+  /**
+   * Merge a Source config update into its parent Feed configuration
    * 
    * @returns created Source Config stream from which data are merged into its associated Feed Config
    */
-  async mergeSourceToFeedConfig(): Promise<KStream> {
+   async mergeSourceToFeedConfig(): Promise<KStream> {
     const sourceConfigTopic = ETopic.SOURCE_CONFIG;
     const sourceConfigStream: KStream = this.streamFactory.getKStream(sourceConfigTopic);
 
@@ -106,16 +165,16 @@ export class FeedHandlerService {
       .mapJSONConvenience()
       .forEach(async (sourceConfigRecord) => {
         const feedId = sourceConfigRecord.key?.toString('utf8');
-        if (!feedId)
+        if (feedId === undefined)
           throw new Error('Source config record on \'' + sourceConfigTopic + '\' has no feed ID key\n' + JSON.stringify(sourceConfigRecord));
         const sourceConfig = sourceConfigRecord.value;
         //this.logger.debug('Processing source config \'' + sourceConfig.contract + '\' for merging in feed \'' + feedId + '\'\n' + JSON.stringify(sourceConfigRecord));
-        this.logger.debug('Processing source config \'' + sourceConfig.contract + '\' for merging in feed \'' + feedId + '\'');
+        this.logger.debug('Processing Source config \'' + sourceConfig.contract + '\' for merging in Feed \'' + feedId + '\'');
 
         const feedConfigMerged = await this.loadFeedFromTable(feedId)
           .then(async (feedConfig: FeedConfig) => {
             if (feedConfig === undefined)
-              throw new Error('No target feed config \'' + feedId + '\' found for merging source \'' + sourceConfig.contract + '\' \n' + feedConfig);
+              throw new Error('No target feed config \'' + feedId + '\' found for merging source \'' + sourceConfig.contract + '\'');
             //this.logger.log('Merging\nContract:\n' + JSON.stringify(contractConfig) + '\nin Feed:\n' + JSON.stringify(feedConfig));
             feedConfig.source = sourceConfig;
             this.logger.log('Source config \'' + sourceConfig.contract + '\' update merged into feed \'' + feedId + '\' - Casting feed update');
@@ -146,54 +205,13 @@ export class FeedHandlerService {
     return sourceConfigStream;
   }
 
-  async initKTableFeed(): Promise<KTable> {
-    const topicName = ETopic.FEED_CONFIG;
-    this.logger.debug('Creating kTable  for \'' + topicName + '\'');
-
-    const keyMapperEtl = message => {
-      const feedConfig: FeedConfig = JSON.parse(message.value.toString());
-      this.logger.debug('Feed config kTable \'' + topicName + '\' entry\n' + JSON.stringify(feedConfig));
-      return {
-        key: feedConfig.id, // message.key && message.key.toString(),
-        value: feedConfig
-      };
-    };
-
-    const topicTable: KTable = this.streamFactory.getKTable(topicName, keyMapperEtl, null);
-
-    //const outputStreamConfig: KafkaStreamsConfig = null;
-    await topicTable.start(
-      () => {
-        this.logger.debug('kTable  on \'' + topicName + '\' ready. Started');
-      },
-      (error) => {
-        //this.logger.error('Failed to start kTable for \'' + topicName + '\'\n' + error);
-        throw new Error('' + new Error('Failed to start kTable for \'' + topicName + '\' \n' + error));
-      },
-      // false,
-      // outputStreamConfig
-    )
-    
-    return topicTable;
-  }
-
-  async loadFeedFromTable(keyId: string, kTable: KTable = this.feedTable, entityName: string = 'Feed config'): Promise<FeedConfig> {
-    //    this.logger.debug('Request for loading ' + entityName + ' \'' + keyId + '\' from kTable');
-    //    this.logger.debug('kTable info\n== Stats:\n'+ JSON.stringify(kTable.getStats()) +'\n== State:\n' + JSON.stringify(kTable.getTable()));
-    return await kTable.getStorage().get(keyId)
-      .then((feedConfig) => {
-        if (!feedConfig) {
-          this.logger.debug('No ' + entityName + ' \'' + keyId + '\' found in kTable');
-          return undefined;
-        }
-        this.logger.debug('Found ' + entityName + ' \'' + keyId + '\' in kTable\n' + JSON.stringify(feedConfig));
-        return feedConfig;
-      })
-      .catch((error) => {
-        throw new Error('Failed to extract ' + entityName + ' \'' + keyId + '\' from kTable \n' + error);
-      });
-  }
-
+  /**
+   * Cast a Feed configuration update
+   * 
+   * @param feedConfig Feed config to cast
+   * @param castSourceConfig Specifies if the source config is also to be cast (on a separate/dedicated topic). `true` by default
+   * @returns Info about the casting of records
+   */
   async castFeedConfig(feedConfig: FeedConfig, castSourceConfig = true): Promise<RecordMetadata[]> {
     return await this.clientKafka.connect()
       .then(async (producer) => {
@@ -243,7 +261,11 @@ export class FeedHandlerService {
       });
   }
 
-
+  /**
+   * Create and register a new data Feed config
+   * @param feedConfig the input/submitted & already validated feed config
+   * @returns Result of the Feed creation request
+   */
   async createFeed(feedConfig: FeedConfig): Promise<RelayActionResult> {
     // 1. Check if existing feed
     // 2. If Existi ng, enable/resume

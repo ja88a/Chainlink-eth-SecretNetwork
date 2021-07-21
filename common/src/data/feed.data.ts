@@ -145,6 +145,10 @@ export class FeedSourceData {
   @IsDateString()
   time: string; // TODO ISO date & time OR epoch number?
 
+  @IsOptional()
+  @IsNumber() 
+  round?: number;  
+
   // TODO Review if timeChecked & timeChanged on source data shall be considered
 }
 

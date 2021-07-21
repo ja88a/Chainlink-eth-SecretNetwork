@@ -1,12 +1,13 @@
 export {
-  ProviderNetwork,
-  ESourceCastReason,
+  ContractEvent,
   EResultFieldLatestRoundData,
+  ESourceCastReason,
+  ESourceDataUpdateReason,
   ESourceStatus,
   ESourcePollingChange,
+  ProviderNetwork,
   SourcePollingInfo,
   RelaydDataUpdate,
-  ESourceDataUpdateReason,
 } from './source.data';
 
 export {
@@ -25,9 +26,11 @@ export {
   FeedConfigSource,
   FeedSourceConfigWrap,
   FeedSourceData,
-  FeedSourceDataUpdate,
   OraclePriceData,
+  FeedSourceDataUpdate,
+
   FeedConfigTarget,
   FeedTargetData,
+  
   ProcessingIssue,
 }  from './feed.data';

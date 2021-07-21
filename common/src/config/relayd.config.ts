@@ -42,6 +42,13 @@ export enum EConfigRunMode {
   default = PROD,
 }
 
+export enum ESourceValidMode {
+  MINIMAL = 'min',
+  OPTIMAL = 'optimal',
+  FULL = 'full',
+  default = OPTIMAL,
+}
+
 class RelaydConfigDefaultCore {
   @IsOptional()
   //@Length(3, 30)
@@ -61,13 +68,23 @@ class RelaydConfigDefaultCore {
   @Length(32, 64)
   ETH_ETHERSCAN_API_KEY?: string;
 
+  @IsOptional()
   @ValidateIf(o => o.ETH_PROVIDER_TYPE === 'default')
   @Length(32, 64)
   ETH_INFURA_PROJECT_ID: string;
 
+  @IsOptional()
   @ValidateIf(o => o.ETH_PROVIDER_TYPE === 'default')
   @Length(32, 64)
   ETH_INFURA_PROJECT_SECRET: string;
+
+  @IsOptional()
+  @Length(32, 64)
+  ETH_ALCHEMY_API_KEY: string;
+
+  @IsOptional()
+  @Length(20, 64)
+  ETH_POCKET_APP_KEY: string;
 
   @Length(3, 30)
   SECRET_CHAIN_ID: string;
@@ -106,6 +123,10 @@ class RelaydConfigDefaultProd extends RelaydConfigDefaultCore {
   @Min(1)
   @Max(188)
   SOURCE_DATA_LAST_UPDATE_MAX_DAYS?: number = 30;
+
+  @IsOptional()
+  @IsEnum(ESourceValidMode)
+  SOURCE_CONTRACT_VALIDATION_MODE?: ESourceValidMode = ESourceValidMode.default;
 
   /**
    * Maximum number of recast of a source contract config
@@ -252,10 +273,22 @@ export class RelaydConfigService {
     return this.configService.get<string>('ETH_INFURA_PROJECT_SECRET', this.default.ETH_INFURA_PROJECT_SECRET);
   }
 
+  get ethAlchemyProjectKey(): string {
+    return this.configService.get<string>('ETH_ALCHEMY_API_KEY', this.default.ETH_ALCHEMY_API_KEY);
+  }
+
+  get ethPocketAppKey(): string {
+    return this.configService.get<string>('ETH_POCKET_APP_KEY', this.default.ETH_POCKET_APP_KEY);
+  }
+
   // _______________________________________________________
   //
   // Source Contract Validation
   // 
+
+  get sourceContractValidationMode(): string {
+    return this.configService.get<string>('SOURCE_CONTRACT_VALIDATION_MODE', this.default.SOURCE_CONTRACT_VALIDATION_MODE);
+  }
 
   get sourceDataLastUpdateMaxDays(): number {
     return this.configService.get<number>('SOURCE_DATA_LAST_UPDATE_MAX_DAYS', this.default.SOURCE_DATA_LAST_UPDATE_MAX_DAYS);

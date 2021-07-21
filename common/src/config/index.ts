@@ -13,11 +13,7 @@ export {
   EExternalCommunicationMode,
   VALID_OPT,
   EConfigRunMode,
-  // contractDataLastUpdateMaxDays,
-  // maxRecast_contractHandlingFail,
-  // maxRecast_networkSourceNotMatching,
-  // nbSuccessiveErrorToStopPolling,
-  // contractIssueMaxNumber,
+  ESourceValidMode,
   RelaydConfigService,
   validate,
 } from './relayd.config';

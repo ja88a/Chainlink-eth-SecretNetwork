@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
 import { IsEnum } from 'class-validator';
 import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
 import {
@@ -113,3 +113,13 @@ export class RelaydDataUpdate {
   @IsDateString()
   time: string;
 };
+
+
+export class ContractEvent {
+  @IsNumber()
+  current: number;
+  @IsPositive()
+  round: number;
+  @IsDateString() 
+  updatedAt: string;
+} 

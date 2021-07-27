@@ -19,7 +19,12 @@ import { RelaydConfigService, validate } from '@relayd/common';
     ScrtConnectModule, 
     FeedHandlerModule
   ],
-  controllers: [AppController],
-  providers: [AppService, RelaydConfigService],
+  controllers: [
+    AppController
+  ],
+  providers: [
+    AppService, 
+    RelaydConfigService
+  ],
 })
 export class AppModule {}

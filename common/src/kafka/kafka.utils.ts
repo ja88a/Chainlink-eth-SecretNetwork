@@ -153,15 +153,27 @@ export class KafkaUtils {
         logger.debug('Logging kStream on \'' + topicName + '\' initiated');
       },
       (error) => {
-        throw new Error('Kafka client failed to start logging Stream records on \'' + topicName + '\'\n' + error.stack);
+        throw new Error('Kafka client failed to run Logging Stream on \'' + topicName + '\'\n' + error.stack);
       }
     );
     
     return topicStream;
   }
 
-  static async castError(errorTopic: ETopic, errorType: EErrorType, key: string, input: any, prevError: any, msg?: string, kafkaProducer?: Producer, logger?: Logger) {
-    const aLoger = logger === undefined ? logger : Logger;
+  /**
+   * 
+   * @param errorTopic 
+   * @param errorType 
+   * @param key 
+   * @param input 
+   * @param prevError 
+   * @param msg 
+   * @param kafkaProducer 
+   * @param logger 
+   */
+  static async castError(errorTopic: ETopic, errorType: EErrorType, key: string, input: any, prevError: any, 
+    msg?: string, kafkaProducer?: Producer, logger?: Logger) {
+    const aLogger = logger !== undefined ? logger : Logger;
 
     const errorInfo = {
       type: errorType,
@@ -170,7 +182,8 @@ export class KafkaUtils {
       error: '' + prevError,
     };
 
-    aLoger.warn('Processing Error caught\n'+prevError+'\n\nCasting Error to \''+errorTopic+'\' with key \''+key+'\'\n'+JSON.stringify(errorInfo));
+    aLogger.error('Processing Error caught\n'+prevError);
+    aLogger.warn('Casting Error to \''+errorTopic+'\' with key \''+key+'\'\n'+JSON.stringify(errorInfo));
 
     let kProducer: Producer;
     let disconnect = false;
@@ -192,7 +205,7 @@ export class KafkaUtils {
       });
     })
     .catch((error) => {
-      aLoger.error('Failed to kConnect for casting error\n'+errorInfo+'\n'+error);
+      aLogger.error('Failed to kConnect for casting Error\n'+errorInfo+'\n'+error);
     })
     //.finally(() => { if (disconnect) kProducer.disconnect()});
   }

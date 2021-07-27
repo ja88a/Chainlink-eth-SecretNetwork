@@ -1,22 +1,42 @@
-import { ConfigService } from '@nestjs/config';
-import { Body, Controller, Get, HttpStatus, Logger, Post, UseFilters } from '@nestjs/common';
-import { Ctx, KafkaContext, MessagePattern, Payload } from '@nestjs/microservices';
+import { Controller } from '@nestjs/common/decorators/core/controller.decorator';
+import { UseFilters } from '@nestjs/common/decorators/core/exception-filters.decorator';
+import { Body } from '@nestjs/common/decorators/http';
+import { Post } from '@nestjs/common/decorators/http/request-mapping.decorator';
+import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
+import { Logger } from '@nestjs/common/services/logger.service';
 
-import { RelayActionResult, FeedConfig, VALID_OPT } from '@relayd/common';
-import { HttpExceptionFilterCust, HttpExceptionService } from '@relayd/common';
+import { 
+  FeedConfig,
+  HttpExceptionFilterCust,
+  HttpExceptionService,
+  RelayActionResult, 
+  VALID_OPT 
+} from '@relayd/common';
 
 import { validateOrReject } from 'class-validator';
+
 import { FeedHandlerService } from './feed-handler.service';
 
+/**
+ * Data Feed Handler controller
+ */
 @Controller()
 export class FeedHandlerController { // implements OnModuleInit
+
+  /** 
+   * Default constructor 
+   */
   constructor(
     private readonly feedHandlerService: FeedHandlerService,
     private readonly httpExceptionService: HttpExceptionService
   ) { }
 
+  /** Dedicated logger instance */
   private readonly logger = new Logger(FeedHandlerController.name, true);
 
+  /**
+   * Default init method
+   */
   async onModuleInit() {
     this.feedHandlerService.init()
       .catch(async (error) => {
@@ -25,6 +45,10 @@ export class FeedHandlerController { // implements OnModuleInit
       });
   }
 
+  /**
+   * Default shutdown method
+   * @param signal Signal at the origin of this shutdown call
+   */
   async onApplicationShutdown(signal: string) {
     this.logger.warn('Shutting down Feed Handler on signal ' + signal); // e.g. "SIGINT"
     if (this.feedHandlerService)

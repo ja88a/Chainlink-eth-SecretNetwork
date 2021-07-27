@@ -45,24 +45,39 @@ import { PreconditionFailedException } from '@nestjs/common/exceptions/precondit
 import { RecordMetadata } from '@nestjs/microservices/external/kafka.interface';
 import { isDate, isDateString, isEthereumAddress, isPositive, validate, validateOrReject } from 'class-validator';
 import { FeedSourceHandle, FeedSourceConfigWrap, EFeedSourceEvent } from '@relayd/common';
+import { EventEmitter } from 'events';
 
 @Injectable()
 export class EthConnectService {
+  /** Dedicated logger */
   private readonly logger = new Logger(EthConnectService.name);
 
+  /** Service's Ethereum network provider instance */
   private provider: ethers.providers.Provider;
 
+  /** Kafka simple messages sender from/to KV */
   @Client(KafkaUtils.getConfigKafka(RelaydKClient.ETH, RelaydKGroup.ETH))
   private clientKafka: ClientKafka;
 
+  /** Kafka streams & tables factory */
   private streamFactory: KafkaStreams;
 
+  /** Service unique ID */
   private serviceId: string;
 
+  /** ETH network connection provider */
   private ethNetworkProviderInfo: ProviderNetwork;
 
+  /**
+   * Default constructor
+   * 
+   * @param config App config
+   */
   constructor(private readonly config: RelaydConfigService) { }
 
+  /**
+   * Service initialization: eth network connection provider, kafka topics & streams
+   */
   async init(): Promise<void> {
     this.initProvider();
     this.logProviderConnection();
@@ -83,7 +98,7 @@ export class EthConnectService {
     this.serviceId = RelaydKClient.ETH + '_' + (await this.getNetworkProviderInfo()).name + '_' + Date.now();
 
     await KafkaUtils.createTopicsDefault(this.clientKafka, this.logger)
-      .catch((error) => { this.logger.warn('ETH Source handler had failure while creating default Kafka topics\nMake sure they have been concurrently created and exist now\n' + error) });
+      .catch((error) => { this.logger.warn('ETH Source handler had failure while creating default Kafka topics\nMake sure they have been concurrently created and exist\n' + error) });
 
     const configKafkaNative = KafkaUtils.getConfigKafkaNative(RelaydKClient.ETH_STREAM, RelaydKGroup.ETH);
     this.streamFactory = new KafkaStreams(configKafkaNative);
@@ -93,22 +108,38 @@ export class EthConnectService {
       });
   }
 
+  /**
+   * 
+   * @returns 
+   */
   getServiceId(): string {
     return this.serviceId;
   }
 
+  /**
+   * Shutdown of the service, expected to be a clean one
+   * 
+   * @param signal signal at the origin of this service shutdown
+   */
   async shutdown(signal: string) {
     this.logger.debug('Shutting down ETH Connect service on signal ' + signal); // e.g. "SIGINT"
 
-    // Stop all data polling
-    await this.stopAllSourcePolling();
+    // Stop all source data polling
+    await this.stopAllSourcePolling()
+      .catch(error => this.logger.error('Failed to properly close all source polling \n' + error));
+    await this.stopAllSourceEventListener()
+      .catch(error => this.logger.error('Failed to properly close all source listeners \n' + error));
 
-    if (this.provider)
-      this.provider.removeAllListeners();
-    // TODO missing data polling notification + source config update
+    // // Wait a bit the time for updates to propagate via Kafka records
+    // const ee = new EventEmitter();
+    // setTimeout(() => { ee.emit('ok') }, 3000)
+    // await new Promise(resolve => {
+    //   ee.once('ok', resolve);
+    // });
 
     if (this.streamFactory)
-      await this.streamFactory.closeAll();
+      await this.streamFactory.closeAll()
+        .catch(error => this.logger.error('Failed to properly close all Streams & Tables \n' + error));
 
     if (this.clientKafka)
       await this.clientKafka.close()
@@ -116,9 +147,8 @@ export class EthConnectService {
           this.logger.debug('ETH kClient closed');
         })
         .catch((error) => {
-          throw new Error('Unexpected closure of ETH kClient \n' + error);
+          throw new Error('Unexpected bad closure of kClient \n' + error);
         });
-
   }
 
   // ________________________________________________________________________________
@@ -126,6 +156,9 @@ export class EthConnectService {
   //  ETH Network Connection management
   // ________________________________________________________________________________
 
+  /**
+   * Init of the Ethereum network connections provider
+   */
   initProvider(): void {
     const providerType = this.config.ethProviderType;
     let provider = null;
@@ -134,7 +167,7 @@ export class EthConnectService {
         provider = new ethers.providers.WebSocketProvider(
           this.config.ethProviderLocalUrl,
         );
-      } 
+      }
       else {
         const networkId = this.config.ethProviderNetworkId;
         provider = ethers.getDefaultProvider(networkId, {
@@ -148,11 +181,18 @@ export class EthConnectService {
         });
       }
     } catch (error) {
-      throw new PreconditionFailedException(error, 'Failed to establish a connection to ETH network \n'+error);
+      throw new PreconditionFailedException(error, 'Failed to establish a connection to ETH network \n' + error);
     }
     this.provider = provider;
   }
 
+  /**
+   * Get the info about current service's Ethereum network provider
+   * 
+   * @param forceLoad force the refresh/reload of the data or used last loaded ones (default)
+   * @param provider optional submission of an already instantiated Eth network provider
+   * @returns network provision info
+   */
   async getNetworkProviderInfo(forceLoad?: boolean, provider?: ethers.providers.Provider): Promise<ProviderNetwork> {
     if (forceLoad || this.ethNetworkProviderInfo === undefined)
       this.ethNetworkProviderInfo = await this.loadNetworkProviderInfo(provider);
@@ -299,6 +339,10 @@ export class EthConnectService {
     await this.mergeSourcePollingToConfig();
 
     this.logger.log('Source Streams & Tables started');
+    if (this.config.appRunMode !== EConfigRunMode.PROD) {
+      this.logger.debug(JSON.stringify(this.streamFactory.getStats()));
+//      console.dir(this.streamFactory.getStats());
+    }
   }
 
   /**
@@ -359,8 +403,8 @@ export class EthConnectService {
           throw new Error('Source polling record on \'' + sourcePollingTopic + '\' has no source ID key \n' + JSON.stringify(sourcePollingRecord));
 
         const sourceConfigMergeResult = await this.loadSourceFromTable(sourceId)
-          .then(async (feedSourceWrap: FeedSourceConfigWrap | Error) => {
-            if (!feedSourceWrap || feedSourceWrap instanceof Error)
+          .then(async (feedSourceWrap: FeedSourceConfigWrap) => {
+            if (feedSourceWrap === undefined)
               throw new Error('No target source config \'' + sourceId + '\' found for merging source polling \'' + sourcePollingInfo.source + '\'');
 
             //this.logger.log('Merging\nSource polling info:\n' + JSON.stringify(contractPollingInfo) + '\nin Source config:\n' + JSON.stringify(contractConfig));
@@ -368,13 +412,13 @@ export class EthConnectService {
             try {
               const newHandleRes = this.reviewSourceHandling(sourceConfig.handle, sourcePollingInfo);
               sourceConfig.handle = newHandleRes;
-            } catch(error) {
+            } catch (error) {
               throw new Error('Failed to review Source polling handle for \'' + feedSourceWrap.feedId + '\' \n' + error);
             }
-            
+
             this.logger.log('Source \'' + sourcePollingInfo.source + '\' merged into feed \'' + sourceId + '\' - Casting source update');
             return await this.castSourceConfig(ETopic.SOURCE_CONFIG, feedSourceWrap.feedId, sourceConfig,
-              ESourceCastReason.HANDLING_SUCCESS, 'Update Source polling info')
+              ESourceCastReason.HANDLING_SUCCESS, 'Update Source data handling')
               .catch((error) => {
                 throw new Error('Failed to cast merged feed-source config \'' + sourceId + '\'\n' + error)
               });
@@ -392,7 +436,7 @@ export class EthConnectService {
         this.logger.debug('kStream on \'' + sourcePollingTopic + '\' for merging polling-source ready. Started');
       },
       (error) => { // kafka error callback
-        throw new Error('Kafka Failed to start merge-source-polling Stream on \'' + sourcePollingTopic + '\' \n' + error.stack);
+        throw new Error('Kafka Failed to run merge-source-polling Stream on \'' + sourcePollingTopic + '\' \n' + error.stack);
       },
       // false,
       // outputStreamConfig
@@ -524,7 +568,9 @@ export class EthConnectService {
         }
         if (!sourceFeedWrap.feedId || !sourceFeedWrap.source)
           throw new Error('Invalid feed-wrapped Source config \'' + keyId + '\'\n' + JSON.stringify(sourceFeedWrap));
-        this.logger.debug('Found ' + entityName + ' \'' + keyId + '\' in kTable\n' + JSON.stringify(sourceFeedWrap));
+        this.logger.debug('Found ' + entityName + ' \'' + keyId + '\' in kTable');
+        if (this.config.appRunMode !== EConfigRunMode.PROD)
+          this.logger.debug(JSON.stringify(sourceFeedWrap));
         return sourceFeedWrap;
       })
       .catch((error) => {
@@ -587,22 +633,25 @@ export class EthConnectService {
     const errorInfo = {
       type: errorType,
       input: sourceConfig,
-      message: 'Failure with ETH source \'' + sourceConfig.contract + '\' config handling for \'' + feedId + '\'',
+      message: 'Failure with Source \'' + sourceConfig.contract + '\' config handling for \'' + feedId + '\'',
       error: '' + prevError,
     };
-    this.logger.error('ETH Source processing Error\n' + JSON.stringify(errorInfo));
+
+    const errorInfoJson = JSON.stringify(errorInfo);
+    this.logger.error('Source processing Error\n' + errorInfoJson);
+    if (this.config.appRunMode === EConfigRunMode.DEV_LOCAL)
+      console.dir(errorInfo);
+
     return await this.castSourceConfig(ETopic.ERROR_CONFIG, feedId, sourceConfig,
-      ESourceCastReason.HANDLING_FAILED, JSON.stringify(errorInfo))
+      ESourceCastReason.HANDLING_FAILED, errorInfoJson)
       .then((castResult) => {
-        if (castResult instanceof Error)
-          throw castResult;
-        else
+        if (this.config.appRunMode !== EConfigRunMode.PROD)
           castResult.forEach((entry: RecordMetadata) => {
             this.logger.debug('Sent Source config Error record\n' + JSON.stringify(entry));
-          })
+          });
       })
       .catch((error) => {
-        this.logger.error('Failed to cast source config Error \'' + errorType + '\'/\'' + ESourceCastReason.HANDLING_FAILED + '\' for source \'' + sourceConfig.contract + '\' of feed \'' + feedId + '\'\nInitial Error: ' + JSON.stringify(errorInfo) + '\n\n' + error);
+        throw new Error('Failed to cast source config Error \'' + errorType + '\'/\'' + ESourceCastReason.HANDLING_FAILED + '\' for source \'' + sourceConfig.contract + '\' of feed \'' + feedId + '\'\nInitial Error: ' + JSON.stringify(errorInfo) + '\n\n' + error);
       });
   }
 
@@ -758,7 +807,7 @@ export class EthConnectService {
 
       // Source validated & ready for data polling
       case ESourceStatus.OK:
-        this.logger.log('Initiate data polling for \'' + sourceConfig.contract + '\' of type \''+sourceConfig.type+'\' Polling mode: '+sourceConfig.poll);
+        this.logger.log('Initiate data polling for \'' + sourceConfig.contract + '\' of type \'' + sourceConfig.type + '\' Polling mode: ' + sourceConfig.poll);
 
         // Check that this source polling is not already handled by the same owner
         const toPoll = this.checkIfDataPollingRequired(sourceConfig);
@@ -769,7 +818,7 @@ export class EthConnectService {
           // Launch the polling process
           const pollingInitResult = await this.initiateSourceDataPolling(sourceConfig, feedId)
             .then((result) => {
-              this.logger.log('Data polling \''+sourceConfig.poll+'\' of \'' + sourceConfig.contract + '\' for feed \'' + feedId + '\' initiated by \'' + this.getServiceId() + '\'');
+              this.logger.log('Data polling \'' + sourceConfig.poll + '\' of \'' + sourceConfig.contract + '\' for feed \'' + feedId + '\' initiated by \'' + this.getServiceId() + '\'');
               return result;
             })
             .catch((error) => {
@@ -879,18 +928,25 @@ export class EthConnectService {
       const tmpContract = this.initContractClAggregator(sourceConfig.contract, sourceConfig.type, this.provider);
       if (sourceConfig.type === EFeedSourceType.CL_AGGR_PROX)
         sourceContract = await this.loadClProxyContractAggregator(tmpContract)
-          .catch(error => { throw new Error('Failed to load Cl Proxy aggregator contract from \'' + sourceConfig?.contract + '\' \n' + error) });
+          .catch(error => {
+            throw new Error('Failed to load Cl Proxy aggregator contract from \'' + sourceConfig?.contract + '\' \n' + error)
+          });
       else
         sourceContract = tmpContract;
 
       const eventSig = sourceConfig.event === EFeedSourceEvent.CUSTOM ? sourceConfig.eventSignature : sourceConfig.event;
       await this.loadContractDecimals(sourceContract)
         .then(async (contractDecimals) => {
-          this.listenToContractEvent(sourceContract, feedId, eventSig, contractDecimals);
+          const contractListened = this.listenToContractEvent(feedId, sourceConfig.contract, sourceContract, eventSig, contractDecimals);
+          await this.trackSourceEventListener(sourceConfig.contract, contractListened);
+        })
+        .catch(error => {
+          this.stopSourceEventListener(sourceConfig.contract, ESourcePollingChange.REMOVE_LISTEN_EVENT, 'Listener init by \'' + this.getServiceId() + '\' failed');
+          throw new Error('Failed to initiate event listener on Source \'' + sourceConfig.contract + '\' \n' + error);
         });
     }
     else
-      throw new Error('Source polling \'' + sourceConfig.poll + '\' NOT SUPPORTED. Review config of Source \'' + sourceConfig.contract + '\' for feed \'' + feedId + '\'');
+      throw new Error('Source polling \'' + sourceConfig.poll + '\' NOT SUPPORTED\nReview config of Source \'' + sourceConfig.contract + '\' for feed \'' + feedId + '\'');
 
     return result;
   }
@@ -940,9 +996,10 @@ export class EthConnectService {
             const msg = 'Failed to poll data from Source \'' + contract?.address + '\' Stop polling after ' + pollingErrorCounter + ' successive errors. Last:\n' + result;
             await handler.stopSourcePolling(contract.address, ESourcePollingChange.REMOVE_PERIODIC, msg)
               .then((stopResult) => {
-                stopResult.forEach(record => {
-                  this.logger.debug('Cast Stop polling source on Error. Record: ' + JSON.stringify(record));
-                });
+                if (this.config.appRunMode !== EConfigRunMode.PROD)
+                  stopResult.forEach(record => {
+                    this.logger.debug('Cast Stop polling source on Error. Record: ' + JSON.stringify(record));
+                  });
               })
               .catch(async (error) => {
                 await this.castErrorSourceConfig(EErrorType.SOURCE_POLLING_HANDLE_FAIL, sourceConfig, feedId,
@@ -950,7 +1007,7 @@ export class EthConnectService {
               });
           }
           else
-            handler.logger.warn('Failed to poll data of source \'' + contract?.address + '\' for feed \'' + feedId + '\' (' + pollingErrorCounter + '/' + maxError + ') \n' + result);
+            handler.logger.warn('Failed to poll data of Source \'' + contract?.address + '\' for feed \'' + feedId + '\' Attempt' + pollingErrorCounter + '/' + maxError + ' \n' + result);
         }
       };
 
@@ -963,26 +1020,40 @@ export class EthConnectService {
   /** 
    * Instance specific map of running source data pulling threads
    */
-  private polledSource: Map<string, {
+  private sourcePolling: Map<string, {
     /** Last retrieved source data */
     data: FeedSourceData;
     /** polling process's timeout hook */
     timeout: NodeJS.Timeout;
   }> = new Map();
 
-  getPolledSource(): string[] {
-    return [...this.polledSource.keys()];
+  getSourcePolled(): string[] {
+    return [...this.sourcePolling.keys()];
+  }
+
+  /** 
+   * Instance specific map of running source contracts' event listener
+   */
+  private sourceListening: Map<string, {
+    /** Last emitted source data */
+    data: FeedSourceData;
+    /** listened contract instance */
+    contract: Contract;
+  }> = new Map();
+
+  getSourceListened(): string[] {
+    return [...this.sourceListening.keys()];
   }
 
   checkForSourceDataChange(sourceId: string, sourceData: FeedSourceData, pollingPeriod?: number): boolean {
     // Caution: retrieved source data are considered as valid here
-    const previous = this.polledSource.get(sourceId);
+    const previous = this.sourcePolling.get(sourceId);
     if (previous === undefined)
-      throw new Error('Inconsistent state: no source \'' + sourceId + '\' registered for polling. Actual: ' + this.getPolledSource.toString());
+      throw new Error('Inconsistent state: no source \'' + sourceId + '\' registered for polling. Actual: ' + this.getSourcePolled.toString());
 
     const previousData = previous.data;
     if (previousData === undefined || previousData.value !== sourceData.value) {
-      this.logger.debug('Value change detected for source \'' + sourceId + '\': ' + sourceData.value);
+      this.logger.log('Value change detected for Source \'' + sourceId + '\': ' + sourceData.value);
 
       if (pollingPeriod) {
         const changeDetectionTimeMs: number = Date.now(); //convertContractInputValue(Date.now(), ValueType.DATE);
@@ -992,51 +1063,58 @@ export class EthConnectService {
             + (timeReportedAsUpdatedMs - changeDetectionTimeMs) / 1000 + 's while the polling period is set to ' + pollingPeriod);
       }
 
-      this.polledSource.set(sourceId, { data: sourceData, timeout: previous.timeout });
+      this.sourcePolling.set(sourceId, { data: sourceData, timeout: previous.timeout });
       return true;
     }
     return false;
   }
 
-  private async trackSourcePolling(sourceId: string, timeout: NodeJS.Timeout) {
-    const existing = this.polledSource.get(sourceId);
+  private async trackSourcePolling(sourceId: string, timeout: NodeJS.Timeout): Promise<RecordMetadata[]> {
+    const existing = this.sourcePolling.get(sourceId);
     if (existing && !this.config.sourcePollingAllowMultipleBySameIssuer)
       throw new Error('Attempt to register a second polling of same Source on same node instance for \'' + sourceId + '\'');
 
-    this.polledSource.set(sourceId, { timeout: timeout, data: undefined });
+    this.sourcePolling.set(sourceId, { timeout: timeout, data: undefined });
 
     return await this.castSourcePolling(ETopic.SOURCE_POLLING, sourceId, ESourcePollingChange.ADD_PERIODIC, 'Periodic Source polling started');
   }
 
-  private async stopSourcePolling(sourceId: string, reasonCode: ESourcePollingChange, reasonMsg?: string) {
-    const timeout = this.polledSource.get(sourceId)?.timeout;
+  /**
+   * Stop the polling process for a source data, and report it
+   * 
+   * @param sourceId source ID
+   * @param reasonCode reason code for stopping the data polling
+   * @param reasonMsg 
+   * @returns 
+   */
+  private async stopSourcePolling(sourceId: string, reasonCode: ESourcePollingChange, reasonMsg?: string): Promise<RecordMetadata[]> {
+    const timeout = this.sourcePolling.get(sourceId)?.timeout;
     if (timeout === undefined)
-      throw new Error('Requesting to stop a non-registered source polling \'' + sourceId + '\'. Actual: ' + this.getPolledSource().toString());
+      throw new Error('Requesting to stop a non-registered source polling \'' + sourceId + '\'. Actual: ' + this.getSourcePolled().toString());
 
     this.logger.warn('Stopping periodic polling of source \'' + sourceId + '\'. Reason: ' + reasonCode + ' ' + reasonMsg);
     //timeout.unref();
     clearInterval(timeout);
-    this.polledSource.delete(sourceId);
+    this.sourcePolling.delete(sourceId);
     return await this.castSourcePolling(ETopic.SOURCE_POLLING, sourceId, reasonCode, reasonMsg);
   }
 
+  /**
+   * Stop all source data polling performed by this service instance
+   * @returns promises on the casting of all actual sources' polling stop requests
+   */
   async stopAllSourcePolling() {
-    const polledSources = this.getPolledSource();
+    const polledSources = this.getSourcePolled();
+    this.logger.debug('Stopping data polling on all sources: ' + polledSources);
 
-    await Promise.all(polledSources.map(async (contractAddr: string) => {
-      await this.stopSourcePolling(contractAddr, ESourcePollingChange.REMOVE_PERIODIC, 'Service shutting down')
-        .then((outcome: RecordMetadata[] | Error) => {
-          if (outcome instanceof Error)
-            throw new Error('Failure met while stopping a source polling \n' + outcome);
-        })
-        .catch((error) => {
-          KafkaUtils.castError(ETopic.ERROR_SOURCE, EErrorType.SOURCE_CONFIG_HANDLING_FAIL, contractAddr, error, 'Failed to properly stop polling source data');
-          //this.castErrorSourceConfig(EErrorType.SOURCE_POLLING_HANDLE_FAIL, )
+    return await Promise.all(polledSources.map(async (contractAddr: string) => {
+      await this.stopSourcePolling(contractAddr, ESourcePollingChange.REMOVE_PERIODIC, 'Service \'' + this.getServiceId() + '\' shutting down')
+        .catch(async (error) => {
+          await KafkaUtils.castError(ETopic.ERROR_SOURCE, EErrorType.SOURCE_POLLING_HANDLE_FAIL, contractAddr, undefined, error, 'Failed to properly stop polling source data', undefined, this.logger);
           //this.logger.error('Failed to stop contracts polling properly \n' + error);
         });
     }));
   }
-
 
   /**
    * Load the latestRoundData of a Chainlink Aggregator contract
@@ -1060,8 +1138,11 @@ export class EthConnectService {
         const lastValueTimeRaw = result[EResultFieldLatestRoundData.UPDATE_TIME];
         const lastValueTime: string = ConvertContractUtils.convertValue(lastValueTimeRaw, ValueType.DATE, convertOpts);
 
+        const lastValueRoundRaw = result[EResultFieldLatestRoundData.ROUND];
+        const lastValueRound: number = ConvertContractUtils.convertValue(lastValueRoundRaw.toString(), ValueType.NUMBER, convertOpts);
+
         this.logger.debug('Value retrieved from ' + contract.address + ": '" +
-          lastValue + ' / ' + lastValueRaw + "' (" + typeof lastValue + ") updated at " + lastValueTime + ' / ' + lastValueTimeRaw + ' (' + typeof lastValueTime + ')');
+          lastValue + ' / ' + lastValueRaw + "' (" + typeof lastValue + ") updated at " + lastValueTime + ' / ' + lastValueTimeRaw + ' (' + typeof lastValueTime + '). Round '+lastValueRound);
 
         // Validate the value
         if (validate && !isPositive(lastValue)) { // TODO Review that limitation to source value type = number
@@ -1084,7 +1165,8 @@ export class EthConnectService {
 
         return {
           value: lastValue,
-          time: lastValueTime
+          time: lastValueTime,
+          round: lastValueRound,
         };
       })
       .catch((error) => {
@@ -1157,7 +1239,6 @@ export class EthConnectService {
   // ____________________________________________________________________________________
   // ====================================================================================
 
-
   /**
    * Check the validity of a source contract, depending on its type
    * 
@@ -1170,7 +1251,7 @@ export class EthConnectService {
     if (address == undefined || !isEthereumAddress(address)) throw new Error('Source address is invalid: ' + address);
 
     const contractType = sourceConfig.type;
-    this.logger.debug("Validating source '" + address + "' of type '" + contractType + "' with status '" + sourceConfig.status);
+    this.logger.debug("Validating Source '" + address + "' of type '" + contractType + "' with status '" + sourceConfig.status+'\'');
 
     const pendingCheck: Array<{ type: EFeedSourceType, data: FeedSourceData | Error, event: FeedSourceData | Error }> = [];
 
@@ -1278,13 +1359,19 @@ export class EthConnectService {
     return new Contract(addrOrName, abiContract, provider || this.provider);
   }
 
+  // ________________________________________________________________________
+  // ========================================================================
+  //
+  //  Contract Events management
+  //
+
   /**
    * Check if a contract has emitted events, if they are available in last blocks' records
    * 
    * @param sourceConfig configuration of the feed Source
    * @param contract instantiated ETH contract
    * @param validate validate or not the loaded events, implies that events must be found
-   * @returns events list loaded from the contract
+   * @returns last event data loaded from the contract
    */
   private async checkForContractEvent(sourceConfig: FeedConfigSource, contract: Contract, decimals: number, validate = true)
     : Promise<FeedSourceData | Error> {
@@ -1304,9 +1391,17 @@ export class EthConnectService {
         return new Error('Failed to load events for \'' + contract.address + '\' \n' + error);
       });
 
-    const lastEvent = eventLoadRes[0];
-    const eventAnswerUpdated = ConvertContractUtils.convertEventAnswerUpdated(lastEvent, decimals);
-    this.logger.debug('Last emitted event \'' + eventName + '\': '+ JSON.stringify(eventAnswerUpdated));
+    if (eventLoadRes instanceof Error)
+      return eventLoadRes;
+
+    let latestEvent = undefined;
+    eventLoadRes.forEach(event => {
+      const round = event.args[1]?.toNumber();
+      if (latestEvent === undefined || round > latestEvent.args[1].toNumber())
+        latestEvent = event;
+    });
+    const eventAnswerUpdated = ConvertContractUtils.convertEventAnswerUpdated(latestEvent, decimals);
+    this.logger.debug('Last emitted event \'' + eventName + '\': ' + JSON.stringify(eventAnswerUpdated));
 
     if (validate) {
       if (eventLoadRes instanceof Error)
@@ -1349,7 +1444,7 @@ export class EthConnectService {
     return await contract
       .queryFilter(eventFilter, fromBlockStart)
       .then((result: ethers.Event[]) => {
-        this.logger.log('Loaded events \'' + eventSignature + '\' on \''+contract.address+'\': found ' + result?.length + ' over last '+nbBlocks+' blocks');
+        this.logger.log('Loaded events \'' + eventSignature + '\' on \'' + contract.address + '\': found ' + result?.length + ' over last ' + nbBlocks + ' blocks');
         return result;
       })
       .catch((error) => {
@@ -1363,23 +1458,26 @@ export class EthConnectService {
    * @param contract target contract to listen event from
    * @param eventSignature Signature of the event to listen to, e.g. 'AnswerUpdated(int256,uint256,uint256)'
    */
-  listenToContractEvent(contract: Contract, feedId: string, eventSignature: string, nbDecimals: number): void {
+  listenToContractEvent(feedId: string, sourceId: string, contract: Contract, eventSignature: string, nbDecimals: number): Contract {
     const eventId = ethers.utils.id(eventSignature);
     const eventFilter: EventFilter = {
       //address: contract.address,
       topics: [eventId],
     };
-    this.logger.log('Start listening to Events \'' + eventSignature + '\' / \'' + eventId + '\' emitted by \'' + contract.address + '\' for \''+feedId+'\'');
-    contract.on(eventFilter, async (current, roundId, updatedAt) => {
-      const msg = 'Event \'' + eventSignature + '\' on \''+contract.address+'\': current=' + current + ' round=' + roundId + ' at=' + updatedAt;
+    this.logger.log('Start listening to Events \'' + eventSignature + '\' / \'' + eventId + '\' emitted by \'' + contract.address + '\' for \'' + feedId + '\'');
+    return contract.on(eventFilter, async (current, roundId, updatedAt) => {
+      const msg = 'Event \'' + eventSignature + '\' on \'' + contract.address + '\''
+        + (sourceId !== contract.address ? ' (from proxy \''+sourceId+'\')' : '')
+        + ': current=' + current + ' round=' + roundId + ' at=' + updatedAt;
       this.logger.debug(msg);
       const result: FeedSourceData = {
         value: ConvertContractUtils.convertValue(current, ValueType.PRICE, { decimals: nbDecimals }),
         time: ConvertContractUtils.convertValue(updatedAt, ValueType.DATE),
+        round: roundId,
       }
-      await this.castSourceDataUpdate(feedId, contract.address, result, ESourceDataUpdateReason.DATA_CHANGE)
+      await this.castSourceDataUpdate(feedId, sourceId, result, ESourceDataUpdateReason.DATA_CHANGE)
         .catch(error => {
-          throw new Error('Failed to cast event-based Source Data change update for \'' + feedId + '\' \n' + error); 
+          throw new Error('Failed to cast event-based Source Data update for \'' + feedId + '\' \n' + error);
         });
     });
   }
@@ -1389,18 +1487,78 @@ export class EthConnectService {
    * Topic0: 0x0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f
    * 
    * @param contract target contract to listen event from
-   * @ignore
+   * @deprecated
    */
-  listenToEthEventAnswerUpdated(contract: Contract): void {
+  listenToEthEventAnswerUpdated(contract: Contract): Contract {
     try {
       const filter2: EventFilter = contract.filters.AnswerUpdated();
       this.logger.debug('Initialized Event listener with filter AnswerUpdated: \'' + filter2 + '\' Address=\'' + filter2.address + '\' Topic: \'' + filter2.topics + '\'');
-      contract.on(filter2, (current, roundId, updatedAt) => {
+      return contract.on(filter2, (current, roundId, updatedAt) => {
         this.logger.log('AnswerUpdated Event emitted. Current=' + current + ' Round=' + roundId + ' At=' + updatedAt);
       });
     } catch (error) {
       throw new Error('Failed to init event listener with filter AnswerUpdated \n' + error);
     }
+  }
+
+  /**
+   * Track and report the activated listening of a source events
+   * 
+   * Notice that the source ID might differ from the contract address, e.g. in case of a CL aggregator proxy
+   * 
+   * @param contract the contract for which the events listening is to be reported
+   * @returns cast result of the source data polling registration
+   */
+  private async trackSourceEventListener(sourceId: string, contract: Contract): Promise<RecordMetadata[]> {
+    //const sourceId = contract.address;
+    const existing = this.sourcePolling.get(sourceId);
+    this.logger.debug('Registering new Event listener on Source \'' + sourceId + '\'' + (sourceId !== contract.address ? (' via contract \'' + contract.address + '\'') : ''));
+    if (existing && !this.config.sourcePollingAllowMultipleBySameIssuer)
+      throw new Error('Forbidden attempt to register a second event listener on same Source on same node instance for \'' + sourceId + '\'');
+
+    this.sourceListening.set(sourceId, { contract: contract, data: undefined });
+
+    return await this.castSourcePolling(ETopic.SOURCE_POLLING, sourceId, ESourcePollingChange.ADD_LISTEN_EVENT, 'Source Event listening started');
+  }
+
+  /**
+   * Stop listening to events of a given data source
+   * 
+   * @param sourceId source ID, e.g. contract address
+   * @param reasonCode reason for stoping to listen to the source events
+   * @param reasonMsg optional indication
+   * @returns cast result of the source polling change
+   */
+  private async stopSourceEventListener(sourceId: string, reasonCode: ESourcePollingChange, reasonMsg?: string): Promise<RecordMetadata[]> {
+    const contract: Contract = this.sourceListening.get(sourceId)?.contract;
+    this.logger.debug('Stopping Event listeners on Source \'' + sourceId + '\'');
+    if (contract === undefined) {
+      this.logger.error('Inconsistent source registered for event listening: contract for \'' + sourceId + '\' is undefined');
+    }
+    else {
+      // const eventId = ethers.utils.id(eventSignature);
+      // contract.off(eventId, null);
+      contract.removeAllListeners();
+    }
+    this.sourceListening.delete(sourceId);
+    return await this.castSourcePolling(ETopic.SOURCE_POLLING, sourceId, reasonCode, reasonMsg);
+  }
+
+  /**
+   * Stop all source event listeners for this instance, e.g. on a service shutdown request
+   * 
+   * @returns promises of all requested stops for listening to source events
+   */
+  async stopAllSourceEventListener() {
+    const polledSources = this.getSourceListened();
+    this.logger.debug('Stopping event listeners on Sources: ' + polledSources);
+    return await Promise.all(polledSources.map(async (sourceId: string) => {
+      await this.stopSourceEventListener(sourceId, ESourcePollingChange.REMOVE_LISTEN_EVENT, 'Service \'' + this.getServiceId + '\' shutting down')
+        .catch(async (error) => {
+          await KafkaUtils.castError(ETopic.ERROR_SOURCE, EErrorType.SOURCE_POLLING_HANDLE_FAIL, sourceId, undefined, error, 'Failed to properly stop polling source data', undefined, this.logger);
+        });
+    }))
+      .finally(() => { this.provider?.removeAllListeners(); });
   }
 
   //

@@ -6,7 +6,8 @@ import {
   FeedConfigSource, 
   ESourceCastReason, 
   ESourceStatus, 
-  RelaydConfigService 
+  RelaydConfigService, 
+  EConfigRunMode
 } from '@relayd/common';
 import { ProviderNetwork } from '@relayd/common';
 import { HttpExceptionFilterCust, RpcExceptionFilterCust } from '@relayd/common';
@@ -27,7 +28,7 @@ export class EthConnectController {
   constructor(
     private readonly ethConnectService: EthConnectService,
 //    private readonly httpExceptionService: HttpExceptionService,
-    private readonly relaydConfig: RelaydConfigService,
+    private readonly config: RelaydConfigService,
   ) { }
 
   async onModuleInit(): Promise<void> {
@@ -40,9 +41,8 @@ export class EthConnectController {
 
   async onApplicationShutdown(signal: string): Promise<void> {
     this.logger.warn('Shutting down ETH Connect on signal ' + signal);
-    if (this.ethConnectService) 
-      await this.ethConnectService.shutdown(signal)
-        .catch((error) => this.logger.error('Failed to properly shut down \n'+error));
+    await this.ethConnectService?.shutdown(signal)
+      .catch(error => this.logger.error('Failed to properly shut down \n'+error));
     RpcExceptionFilterCust.shutdown();
   }
 
@@ -116,10 +116,10 @@ export class EthConnectController {
       const countLastNetworkCompatibilityIssues = 1 + this.ethConnectService.countIssueInLastRow(
         sourceConfig, ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING);
       const msg = ESourceCastReason.FAILURE_NETWORK_NOT_MATCHING + " No network support found for Source Contract of '"
-        + feedId + "'. Attempt '" + countLastNetworkCompatibilityIssues + '/' + this.relaydConfig.maxRecastNetworkSourceNotMatching;
+        + feedId + "'. Attempt '" + countLastNetworkCompatibilityIssues + '/' + this.config.maxRecastNetworkSourceNotMatching;
       this.logger.warn(msg);
 
-      const keepTrying = countLastNetworkCompatibilityIssues < this.relaydConfig.maxRecastNetworkSourceNotMatching;
+      const keepTrying = countLastNetworkCompatibilityIssues < this.config.maxRecastNetworkSourceNotMatching;
       if (!keepTrying)
         sourceConfig.status = ESourceStatus.FAIL;
 
@@ -159,11 +159,11 @@ export class EthConnectController {
       .catch(async (error) => {
         const countLastSerieOfHandlingErrors = 1 + this.ethConnectService.countIssueInLastRow(sourceConfig, ESourceCastReason.HANDLING_FAILED);
         const msg = ESourceCastReason.HANDLING_FAILED + ': Failed to handle Source \'' + sourceConfig.contract + '\' for \'' + feedId +
-          '\'. Attempt ' + (countLastSerieOfHandlingErrors) + '/' + this.relaydConfig.maxRecastSourceHandlingFail + ' \n' + error;
+          '\'. Attempt ' + (countLastSerieOfHandlingErrors) + '/' + this.config.maxRecastSourceHandlingFail + ' \n' + error;
         
         this.logger.warn(msg);
 
-        const keepTrying = countLastSerieOfHandlingErrors < this.relaydConfig.maxRecastSourceHandlingFail;
+        const keepTrying = countLastSerieOfHandlingErrors < this.config.maxRecastSourceHandlingFail;
         if (!keepTrying)
           sourceConfig.status = ESourceStatus.FAIL;
 
@@ -187,9 +187,12 @@ export class EthConnectController {
     }
 
     if (contractSourceUpd === undefined)
-      this.logger.debug('ETH Source \'' + sourceConfig.contract + '\' for \'' + feedId + '\' processed');
-    else
-      this.logger.log('ETH Source \'' + sourceConfig.contract + '\' for \'' + feedId + '\' updated & cast \n' + JSON.stringify(contractSourceUpd || sourceConfig));
+      this.logger.debug('Source \'' + sourceConfig.contract + '\' for \'' + feedId + '\' processed');
+    else {
+      this.logger.log('Source \'' + sourceConfig.contract + '\' for \'' + feedId + '\' updated & cast');
+      if (this.config.appRunMode !== EConfigRunMode.PROD)
+        this.logger.debug(JSON.stringify(contractSourceUpd || sourceConfig));
+    }
   }
 
 }

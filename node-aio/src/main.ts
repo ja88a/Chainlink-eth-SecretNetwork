@@ -6,7 +6,7 @@ import { ValidationPipe } from '@nestjs/common/pipes';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    //logger: ['error', 'warn'],
+    logger: ['error', 'warn', 'log', 'debug'],
     //logger: false,
   });
 

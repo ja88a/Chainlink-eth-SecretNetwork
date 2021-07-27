@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common/decorators/modules/module.decorator';
 import { ConfigModule } from '@nestjs/config';
+import { HttpExceptionService, RelaydConfigService } from '@relayd/common';
 import { FeedHandlerController } from './feed-handler.controller';
 import { FeedHandlerService } from './feed-handler.service';
-import { HttpExceptionService, RelaydConfigService } from '@relayd/common';
 
 @Module({
   imports: [ConfigModule.forRoot()],

@@ -37,6 +37,7 @@ export enum ESourceStatus {
 export enum EResultFieldLatestRoundData {
   VALUE = 'answer',
   UPDATE_TIME = 'updatedAt',
+  ROUND = 'roundId',
 };
 
 export enum ESourceDataUpdateReason {

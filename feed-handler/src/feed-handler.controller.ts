@@ -70,7 +70,8 @@ export class FeedHandlerController { // implements OnModuleInit
   @UseFilters(HttpExceptionFilterCust.for())
   async addFeedPrice(@Body() feedConfig: FeedConfig): Promise<RelayActionResult> {
     this.logger.log('Request for adding a new Data Feed: ' + feedConfig.id);
-    this.logger.debug('Payload:\n' + JSON.stringify(feedConfig));
+    if (this.config.appRunMode !== EConfigRunMode.PROD)
+      this.logger.debug('Payload:\n' + JSON.stringify(feedConfig));
 
     const valid = await validateOrReject(feedConfig, VALID_OPT) // 
       .catch(error => {

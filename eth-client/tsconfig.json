@@ -6,6 +6,9 @@
       "src",
       "test"
     ],
+    // "assets": [
+    //   "resources/**/*.json"
+    // ],
     "outDir": "./dist",
     "baseUrl": "./",
     "declarationDir": "./dist/types"

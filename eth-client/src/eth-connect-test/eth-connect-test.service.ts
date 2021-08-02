@@ -5,7 +5,7 @@ import { Logger } from '@nestjs/common/services/logger.service';
 import { ConfigService } from '@nestjs/config';
 import { Contract, ethers, Event, EventFilter, Signer, Wallet } from 'ethers';
 import { Result } from 'ethers/lib/utils';
-import oracleContractAbi from '../res/AccessControlledOffchainAggregator.ABI.json';
+import oracleContractAbi from '../resources/AccessControlledOffchainAggregator.ABI.json';
 
 export const CstPair = {
   BTCUSD: 'btcusd',

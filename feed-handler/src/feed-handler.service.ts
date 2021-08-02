@@ -129,8 +129,8 @@ export class FeedHandlerService {
     await this.mergeSourceToFeedConfig()
       .catch((error) => { throw new Error('Failed to init feed-source merging process \n' + error); });
 
-    this.logger.log('Feed Streams & Tables started');
-    if (this.config.appRunMode !== EConfigRunMode.PROD) {
+    this.logger.log('Feed Streams & Tables started '+ this.config.logKafkaRecordContent);
+    if (this.config.logKafkaRecordContent === true) {
       this.logger.debug(JSON.stringify(this.streamFactory.getStats()))
       //      console.dir(this.streamFactory.getStats());
     }
@@ -147,7 +147,7 @@ export class FeedHandlerService {
     const keyMapperEtl = message => {
       const feedConfig: FeedConfig = JSON.parse(message.value.toString());
       this.logger.debug('Feed config kTable \'' + topicName + '\' entry: \'' + feedConfig.id + '\'');
-      if (this.config.appRunMode !== EConfigRunMode.PROD)
+      if (this.config.logKafkaRecordContent)
         this.logger.debug(JSON.stringify(feedConfig));
       return {
         key: feedConfig.id, // message.key && message.key.toString(),
@@ -191,7 +191,7 @@ export class FeedHandlerService {
           return undefined;
         }
         this.logger.debug('Found ' + entityName + ' \'' + keyId + '\' in kTable');
-        if (this.config.appRunMode !== EConfigRunMode.PROD)
+        if (this.config.logKafkaRecordContent)
           this.logger.debug(JSON.stringify(feedConfig));
         return feedConfig;
       })
@@ -263,12 +263,10 @@ export class FeedHandlerService {
   async castFeedConfig(feedConfig: FeedConfig, castSourceConfig = true): Promise<boolean> {
     const castRes: Array<Promise<void>> = [];
 
-    this.logger.warn('CASTING Feed CONFIG');
     castRes.push(KafkaUtils.writeToStream(this.streamFactory, ETopic.FEED_CONFIG, feedConfig.id, feedConfig, this.feedConfigTable));
 
     // Cast the feed's source contract config for further processing
     if (castSourceConfig) {
-      this.logger.warn('CASTING Source CONFIG');
       castRes.push(KafkaUtils.writeToStream(this.streamFactory, ETopic.SOURCE_CONFIG, feedConfig.id, feedConfig.source));
     }
 

@@ -84,7 +84,15 @@ class RelaydConfigDefaultCore {
 
   @IsOptional()
   @Length(20, 64)
-  ETH_POCKET_APP_KEY: string;
+  ETH_POCKET_GATEWAY_ID: string;
+
+  @IsOptional()
+  @Length(20, 64)
+  ETH_POCKET_APP_ADDRESS: string;
+
+  @IsOptional()
+  @Length(20, 64)
+  ETH_POCKET_SECRET_KEY: string;
 
   @Length(3, 30)
   SECRET_CHAIN_ID: string;
@@ -104,6 +112,10 @@ class RelaydConfigDefaultCore {
   @IsOptional()
   @IsEnum(EConfigRunMode)
   APP_RUN_MODE?: EConfigRunMode = EConfigRunMode.default;
+
+  @IsOptional()
+  @IsBoolean()
+  LOG_KAFKA_RECORD_CONTENT?: boolean = false;
 }
 
 class RelaydConfigDefaultProd extends RelaydConfigDefaultCore {
@@ -244,6 +256,10 @@ export class RelaydConfigService {
     return this.configService.get<EExternalCommunicationMode>('APP_EXTERNAL_COM_MODE', this.default.APP_EXTERNAL_COM_MODE);
   }
 
+  get logKafkaRecordContent(): boolean {
+    return this.configService.get<boolean>('LOG_KAFKA_RECORD_CONTENT', this.default.LOG_KAFKA_RECORD_CONTENT);
+  }
+
   // _______________________________________________________
   //
   // Ethereum connection
@@ -277,8 +293,16 @@ export class RelaydConfigService {
     return this.configService.get<string>('ETH_ALCHEMY_API_KEY', this.default.ETH_ALCHEMY_API_KEY);
   }
 
-  get ethPocketAppKey(): string {
-    return this.configService.get<string>('ETH_POCKET_APP_KEY', this.default.ETH_POCKET_APP_KEY);
+  get ethPocketGatewayId(): string {
+    return this.configService.get<string>('ETH_POCKET_GATEWAY_ID', this.default.ETH_POCKET_GATEWAY_ID);
+  }
+  
+  get ethPocketAppAddress(): string {
+    return this.configService.get<string>('ETH_POCKET_APP_ADDRESS', this.default.ETH_POCKET_APP_ADDRESS);
+  }
+
+  get ethPocketSecretKey(): string {
+    return this.configService.get<string>('ETH_POCKET_SECRET_KEY', this.default.ETH_POCKET_SECRET_KEY);
   }
 
   // _______________________________________________________

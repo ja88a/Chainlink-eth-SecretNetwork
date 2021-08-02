@@ -69,7 +69,9 @@ export class EthConnectController {
     const feedId = message.key.toString();
 
     const sourceConfig: FeedConfigSource = JSON.parse(JSON.stringify(message.value)); // JSON.parse(message.value.toString())
-    this.logger.debug(`Received Source: '${sourceConfig.contract}'\n${JSON.stringify(sourceConfig)}`);
+    this.logger.debug(`Received Source: '${sourceConfig.contract}'`);
+    if (this.config.logKafkaRecordContent)
+      this.logger.debug(JSON.stringify(sourceConfig));
 
     if (sourceConfig === undefined || sourceConfig.status == ESourceStatus.FAIL) {
       this.logger.warn('Skipping Source \'' + sourceConfig?.contract + '\' for feed \'' + feedId + '\' with status \'' + sourceConfig?.status + '\'');
@@ -179,7 +181,7 @@ export class EthConnectController {
       this.logger.debug('Source \'' + sourceConfig.contract + '\' for \'' + feedId + '\' processed');
     else {
       this.logger.log('Source \'' + sourceConfig.contract + '\' for \'' + feedId + '\' updated & cast');
-      if (this.config.appRunMode !== EConfigRunMode.PROD)
+      if (this.config.logKafkaRecordContent)
         this.logger.debug(JSON.stringify(contractSourceUpd || sourceConfig));
     }
   }

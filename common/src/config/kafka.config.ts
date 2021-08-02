@@ -27,7 +27,7 @@ export const configKafkaClient: KafkaConfig = {
 export const configKafkaConsumer: ConsumerConfig = {
   groupId: KAFKA_GROUP_ID,
   // TODO PROD Review Kafka config allowAutoTopicCreation
-  allowAutoTopicCreation: true,
+  //allowAutoTopicCreation: true,
   // partitionAssigners?: PartitionAssigner[]
   // metadataMaxAge?: number
   // sessionTimeout?: number
@@ -122,7 +122,7 @@ export const configKafkaNative: KafkaStreamsConfig = {
  * App default topics / channels for emiting or listening to messages
  */
 export enum ETopic {
-  ERROR_CONFIG = 'relayd.error.feed',
+  ERROR_FEED = 'relayd.error.feed',
   ERROR_SOURCE = 'relayd.error.source',
   FEED_CONFIG = 'relayd.feed',
   SOURCE_CONFIG = 'relayd.source',
@@ -140,7 +140,7 @@ export type ITopicConfig = {
  * Configuration of messaging topics / channels
  */
 export const configKafkaTopics: Map<String, ITopicConfig> = new Map([
-  [ETopic.ERROR_CONFIG, { name: ETopic.ERROR_CONFIG, numPartitions: 1, replicationFactor: 1 }],
+  [ETopic.ERROR_FEED, { name: ETopic.ERROR_FEED, numPartitions: 1, replicationFactor: 1 }],
   [ETopic.ERROR_SOURCE, { name: ETopic.ERROR_SOURCE, numPartitions: 1, replicationFactor: 1 }],
   [ETopic.FEED_CONFIG, { name: ETopic.FEED_CONFIG, numPartitions: 1, replicationFactor: 1 }],
   [ETopic.SOURCE_CONFIG, { name: ETopic.SOURCE_CONFIG, numPartitions: 1, replicationFactor: 1 }],

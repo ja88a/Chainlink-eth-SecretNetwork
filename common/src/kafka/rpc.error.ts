@@ -79,13 +79,13 @@ export class RpcExceptionFilterCust extends BaseRpcExceptionFilter {
     const producer = this.kafka.producer();
     producer.connect().then(() => {
       producer.send({
-        topic: ETopic.ERROR_CONFIG,
+        topic: ETopic.ERROR_FEED,
         messages: [{
           key: ctxData.key,
           value: JSON.stringify(errorRecord)
         }]
       }).then(() => {
-        this.logger.warn('Error caught and cast to \'' + ETopic.ERROR_CONFIG + '\' with key \'' + ctxData.key + '\'\n' + JSON.stringify(errorRecord));
+        this.logger.warn('Error caught and cast to \'' + ETopic.ERROR_FEED + '\' with key \'' + ctxData.key + '\'\n' + JSON.stringify(errorRecord));
       }).catch((error) => {
         this.logger.error('Failed to cast error.\n' + JSON.stringify(errorRecord) + '\n' + error);
       });

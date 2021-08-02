@@ -2,7 +2,7 @@ import { Logger } from "@nestjs/common/services/logger.service";
 import { ClientKafka } from "@nestjs/microservices/client/client-kafka";
 import { Admin, ITopicConfig, KafkaConfig, Producer } from "@nestjs/microservices/external/kafka.interface";
 import { KafkaOptions } from "@nestjs/microservices/interfaces/microservice-configuration.interface";
-import { KafkaStreamsConfig, KStream } from "kafka-streams";
+import { KafkaStreams, KafkaStreamsConfig, KStream, StreamDSL } from "kafka-streams";
 import { deepCopyJson } from "../utils/misc.utils";
 import { configKafka, configKafkaClient, configKafkaNative, configKafkaTopics, ETopic } from "../config/kafka.config";
 import { EErrorType } from "./rpc.error";
@@ -56,17 +56,20 @@ export class KafkaUtils {
   }
 
   /**
-  * Create the required default topics, if necessary / not already existing
+  * Create the required topics, if necessary, i.e. not already existing
+  * 
+  * @param topicsIn the topics to be created, if not specified all known default topics are processed
+  * @param clientKafka the kafka client instance to use for reaching the admin API
+  * @param logger logger instance
+  * @returns 
   */
-  static async createTopicsDefault(clientKafka: ClientKafka, logger: Logger): Promise<boolean> {
+  static async createTopics(topics: ETopic[], clientKafka: ClientKafka, logger: Logger): Promise<boolean> {
     try {
       const kafkaAdmin: Admin = clientKafka.createClient().admin();
-      //const kafkaAdmin: Admin = this.kafkaClient.admin();
       const topicsExisting = await kafkaAdmin.listTopics();
 
       const appTopics: ITopicConfig[] = [];
-      for (const topic in ETopic) {
-        const topicName = ETopic[topic];
+      topics.forEach(topicName => {
         const topicExists = topicsExisting.includes(topicName);
         if (!topicExists) {
           logger.debug('Create Topic \'' + topicName + '\' from ' + JSON.stringify(configKafkaTopics.get(topicName)));
@@ -76,7 +79,7 @@ export class KafkaUtils {
             replicationFactor: configKafkaTopics.get(topicName).replicationFactor | 1,
           })
         }
-      }
+      });
 
       const resultStore: Promise<boolean>[] = [];
       if (appTopics.length > 0) {
@@ -84,7 +87,7 @@ export class KafkaUtils {
           topics: appTopics,
           waitForLeaders: true,
         }).then((success) => {
-          logger.log('Creation of ' + appTopics.length + ' default topics - Success: ' + success);
+          logger.log('Creation of ' + appTopics.length + ' default topics - Issues met: ' + !success);
           return true;
         }).catch((error) => {
           throw new Error('Failed to create topics ' + JSON.stringify(appTopics) + '\n' + error);
@@ -103,7 +106,7 @@ export class KafkaUtils {
           throw new Error('Failed to create a default Topic \n' + error);
         });
     } catch (error) {
-      throw new Error('Failed to create missing default Topics\n' + error);
+      throw new Error('Failed to create missing default Topics \n' + error);
     }
   }
 
@@ -162,6 +165,39 @@ export class KafkaUtils {
 
   /**
    * 
+   * @param streamFactory 
+   * @param topic 
+   * @param key 
+   * @param value 
+   * @param stream 
+   * @returns 
+   */
+  static async writeToStream(streamFactory: KafkaStreams, topic: ETopic, key: string, value: any, stream?: StreamDSL) {
+    // //  PATCH used for example to ensure a feed config is immediately available in the local kTable
+    // // Used when having 1 stream and 1 table initiated on the same topic..
+    // if (stream) {
+    //   stream.writeToStream({
+    //     key: key,
+    //     value: JSON.stringify(value),
+    //   });
+    // }
+
+    const tmpStream = streamFactory.getKStream(null);
+    tmpStream.to(topic);
+    return await tmpStream.start().then(_ => {
+      tmpStream.writeToStream({
+        key: key,
+        value: value instanceof Object ? JSON.stringify(value) : value, // TODO Review Serialization format 
+      });
+      setTimeout(() => tmpStream.close(), 2000); // TODO review that default timeout for closing a producer stream
+    })
+    .catch(error => {
+      throw new Error('Failed to write message to stream \''+topic+'\' with key \''+key+'\'');
+    });
+  }
+
+  /**
+   * 
    * @param errorTopic 
    * @param errorType 
    * @param key 
@@ -205,7 +241,7 @@ export class KafkaUtils {
       });
     })
     .catch((error) => {
-      aLogger.error('Failed to kConnect for casting Error\n'+errorInfo+'\n'+error);
+      aLogger.error('Failed to kConnect for casting Error\n'+JSON.stringify(errorInfo)+'\n'+error);
     })
     //.finally(() => { if (disconnect) kProducer.disconnect()});
   }

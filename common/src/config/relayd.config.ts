@@ -31,7 +31,7 @@ export enum EExternalCommunicationMode {
   DEBUG = 'debug',
   STANDARD = 'standard',
   DENY = 'deny',
-  // TODO PROD Set to STD or DENY
+  // TODO PROD Review ext com mode to be Set to STD or DENY
   default = STANDARD
 };
 

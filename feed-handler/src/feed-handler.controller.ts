@@ -1,15 +1,17 @@
 import { Controller } from '@nestjs/common/decorators/core/controller.decorator';
 import { UseFilters } from '@nestjs/common/decorators/core/exception-filters.decorator';
 import { Body } from '@nestjs/common/decorators/http';
-import { Post } from '@nestjs/common/decorators/http/request-mapping.decorator';
+import { Get, Post } from '@nestjs/common/decorators/http/request-mapping.decorator';
 import { HttpStatus } from '@nestjs/common/enums/http-status.enum';
 import { Logger } from '@nestjs/common/services/logger.service';
 
 import { 
+  EConfigRunMode,
   FeedConfig,
   HttpExceptionFilterCust,
   HttpExceptionService,
   RelayActionResult, 
+  RelaydConfigService, 
   VALID_OPT 
 } from '@relayd/common';
 
@@ -28,7 +30,8 @@ export class FeedHandlerController { // implements OnModuleInit
    */
   constructor(
     private readonly feedHandlerService: FeedHandlerService,
-    private readonly httpExceptionService: HttpExceptionService
+    private readonly httpExceptionService: HttpExceptionService,
+    private readonly config: RelaydConfigService,
   ) { }
 
   /** Dedicated logger instance */
@@ -84,5 +87,15 @@ export class FeedHandlerController { // implements OnModuleInit
       });
   }
 
-}
+  @Get('/relay/feed/kstats')
+  @UseFilters(HttpExceptionFilterCust.for())
+  getKakfaStreamStatistics(): RelayActionResult {
+    if (this.config.appRunMode === EConfigRunMode.PROD)
+      throw this.httpExceptionService.clientError(HttpStatus.NOT_FOUND, null, new Error('Not available in prod mode'));
+    return {
+      status: HttpStatus.OK,
+      data: this.getKakfaStreamStatistics(),
+    }
+  }
 
+}

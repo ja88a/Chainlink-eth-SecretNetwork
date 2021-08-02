@@ -27,7 +27,6 @@ export class EthConnectController {
 
   constructor(
     private readonly ethConnectService: EthConnectService,
-//    private readonly httpExceptionService: HttpExceptionService,
     private readonly config: RelaydConfigService,
   ) { }
 
@@ -52,19 +51,14 @@ export class EthConnectController {
     return this.ethConnectService.loadNetworkProviderInfo();
   }
 
-  // http://localhost:3000/eth/event/listen/btcusd
-  //  @Get('eth/event/listen/:pair')
-  // @UseFilters(RpcExceptionFilterCust.for(EthConnectController.name))
-  // listenEventAnswerUpdated(@Param('pair') pair: string): string {
-  //   const contract = this.ethConnectService.getSourceContracts().get(pair);
-  //   if (!contract) {
-  //     this.logger.warn('Unknown contract key requested "' + pair + '" for listening to events AnswerUpdated');
-  //     return '404';
-  //   }
-  //   this.ethConnectService.listenEventOracleAnswerUpdated(contract);
-  //   return '200';
-  // }
-
+  /**
+   * External entry-point for any updates on a feed Source config
+   * * Validate the contract input: data & supported source network
+   * * Source config handling: check for actions and proceed
+   * * Update the topic(s) with processing results
+   * @param message cast message about source config
+   * @returns 
+   */
   @MessagePattern(ETopic.SOURCE_CONFIG)
   @UseFilters(RpcExceptionFilterCust.for(EthConnectController.name))
   async handleSourceConfig(@Payload() message: KafkaMessage/*, @Ctx() context: KafkaContext*/): Promise<void> {
@@ -76,11 +70,6 @@ export class EthConnectController {
 
     const sourceConfig: FeedConfigSource = JSON.parse(JSON.stringify(message.value)); // JSON.parse(message.value.toString())
     this.logger.debug(`Received Source: '${sourceConfig.contract}'\n${JSON.stringify(sourceConfig)}`);
-
-    // 0. Validate the contract input
-    // 1. Check right source network
-    // 2. Contract config handling
-    // 3. Update the topic(s) with processing results
 
     if (sourceConfig === undefined || sourceConfig.status == ESourceStatus.FAIL) {
       this.logger.warn('Skipping Source \'' + sourceConfig?.contract + '\' for feed \'' + feedId + '\' with status \'' + sourceConfig?.status + '\'');

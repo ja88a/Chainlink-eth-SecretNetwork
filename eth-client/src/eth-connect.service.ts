@@ -180,7 +180,11 @@ export class EthConnectService {
             projectSecret: this.config.ethInfuraProjectSecret,
           },
           alchemy: this.config.ethAlchemyProjectKey,
-          pocket: this.config.ethPocketAppKey,
+          //pocket: this.config.ethPocketGatewayId,
+          pocket: {
+            applicationId: this.config.ethPocketAppAddress,
+            applicationSecretKey: this.config.ethPocketSecretKey,
+          }
         });
       }
     } catch (error) {
@@ -349,7 +353,7 @@ export class EthConnectService {
     await this.mergeSourcePollingToConfig();
 
     this.logger.log('Source Streams & Tables started');
-    if (this.config.appRunMode !== EConfigRunMode.PROD) {
+    if (this.config.logKafkaRecordContent) {
       this.logger.debug(JSON.stringify(this.streamFactory.getStats()));
       //      console.dir(this.streamFactory.getStats());
     }
@@ -370,9 +374,11 @@ export class EthConnectService {
         feedId: message.key.toString('utf8'),
         source: sourceConfig,
       }
+
       this.logger.debug('Wrapped Source config kTable \'' + topicName + '\' entry: \''+feedSourceWrap.feedId+'\' <- \''+feedSourceWrap.source?.contract+'\'');
-      if (this.config.appRunMode !== EConfigRunMode.PROD)
+      if (this.config.logKafkaRecordContent)
         this.logger.debug(JSON.stringify(feedSourceWrap));
+
       return {
         key: sourceConfig.contract,
         value: feedSourceWrap
@@ -414,7 +420,7 @@ export class EthConnectService {
         if (sourceId === undefined)
           throw new Error('Source polling record on \'' + sourcePollingTopic + '\' has no source ID key \n' + JSON.stringify(sourcePollingRecord));
 
-        const sourceConfigMergeResult = await this.loadSourceFromTable(sourceId)
+        const sourceConfigMergeResult = await this.getSourceFromTable(sourceId)
           .then(async (feedSourceWrap: FeedSourceConfigWrap) => {
             if (feedSourceWrap === undefined)
               throw new Error('No target source config \'' + sourceId + '\' found for merging source polling \'' + sourcePollingInfo.source + '\'');
@@ -568,7 +574,7 @@ export class EthConnectService {
    * @param entityName optional overriding of the entity name used for logging
    * @returns result of the search in the kTable
    */
-  async loadSourceFromTable(keyId: string, kTable: KTable = this.sourceTable, entityName = 'Wrapped Source config')
+  async getSourceFromTable(keyId: string, kTable: KTable = this.sourceTable, entityName = 'Wrapped Source config')
     : Promise<FeedSourceConfigWrap> {
     // this.logger.debug('Request for loading ' + entityName + ' \'' + keyId + '\' from kTable');
     // this.logger.debug('kTable info\n== Stats:\n'+ JSON.stringify(kTable.getStats()) +'\n== State:\n' + JSON.stringify(kTable.getTable()));
@@ -581,7 +587,7 @@ export class EthConnectService {
         if (!sourceFeedWrap.feedId || !sourceFeedWrap.source)
           throw new Error('Invalid feed-wrapped Source config \'' + keyId + '\'\n' + JSON.stringify(sourceFeedWrap));
         this.logger.debug('Found ' + entityName + ' \'' + keyId + '\' in kTable');
-        if (this.config.appRunMode !== EConfigRunMode.PROD)
+        if (this.config.logKafkaRecordContent)
           this.logger.debug(JSON.stringify(sourceFeedWrap));
         return sourceFeedWrap;
       })
@@ -1018,7 +1024,7 @@ export class EthConnectService {
     if (previousData === undefined || previousData.value !== sourceData.value) {
       this.logger.log('Value change detected for Source \'' + sourceId + '\': ' + sourceData.value);
 
-      if (pollingPeriod) {
+      if (pollingPeriod && previousData !== undefined) {
         const changeDetectionTimeMs: number = Date.now(); //convertContractInputValue(Date.now(), ValueType.DATE);
         const timeReportedAsUpdatedMs: number = new Date(sourceData.time).valueOf(); // TODO Review data time format integration here, if number or isoString
         if (changeDetectionTimeMs > (timeReportedAsUpdatedMs + pollingPeriod * 1000 + 1500))
@@ -1143,25 +1149,6 @@ export class EthConnectService {
         throw new Error('Failed to fetch latestRoundData for \'' + contract?.address + '\' \n' + error);
       });
   }
-
-
-  //  latestRoundData() returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
-  // async queryContractLatestRoundData(
-  //   key: string,
-  //   contract: Contract,
-  //   resultCollector?: Map<string, Result>,
-  // ): Promise<Result> {
-  //   return await contract.functions
-  //     .latestRoundData()
-  //     .then((result: Result) => {
-  //       resultCollector?.set(key, result);
-  //       //this.logger.debug('latestRoundData for ' + key + ': ' + result);
-  //       return result;
-  //     })
-  //     .catch((error) => {
-  //       throw new Error('Failed to fetch latestRoundData for \'' + key + '\' \n' + error);
-  //     });
-  // }
 
   /**
    * Load the aggregator controller source of a Chainlink EACAggregator Proxy contract
@@ -1327,9 +1314,11 @@ export class EthConnectService {
     type?: EFeedSourceType,
     provider?: ethers.providers.Provider,
   ): Contract {
-    const abiContract = type == null || type == EFeedSourceType.CL_AGGR_PROX ?
-      require('./res/EACAggregatorProxy.ABI.json')
-      : require('./res/AccessControlledOffchainAggregator.ABI.json');
+    let abiContract: ethers.ContractInterface;
+    if (type == null || type == EFeedSourceType.CL_AGGR_PROX)
+      abiContract = require('./resources/EACAggregatorProxy.ABI.json');
+    else
+      abiContract = require('./resources/AccessControlledOffchainAggregator.ABI.json');
     return new Contract(addrOrName, abiContract, provider || this.provider);
   }
 

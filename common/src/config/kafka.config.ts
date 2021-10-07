@@ -140,12 +140,12 @@ export type ITopicConfig = {
  * Configuration of messaging topics / channels
  */
 export const configKafkaTopics: Map<String, ITopicConfig> = new Map([
-  [ETopic.ERROR_FEED, { name: ETopic.ERROR_FEED, numPartitions: 1, replicationFactor: 1 }],
-  [ETopic.ERROR_SOURCE, { name: ETopic.ERROR_SOURCE, numPartitions: 1, replicationFactor: 1 }],
-  [ETopic.FEED_CONFIG, { name: ETopic.FEED_CONFIG, numPartitions: 1, replicationFactor: 1 }],
-  [ETopic.SOURCE_CONFIG, { name: ETopic.SOURCE_CONFIG, numPartitions: 1, replicationFactor: 1 }],
-  [ETopic.SOURCE_DATA, { name: ETopic.SOURCE_DATA, numPartitions: 1, replicationFactor: 1 }],
-  [ETopic.SOURCE_POLLING, { name: ETopic.SOURCE_POLLING, numPartitions: 1, replicationFactor: 1 }],
+  [ETopic.ERROR_FEED, { name: ETopic.ERROR_FEED, numPartitions: 30, replicationFactor: 1 }],
+  [ETopic.ERROR_SOURCE, { name: ETopic.ERROR_SOURCE, numPartitions: 30, replicationFactor: 1 }],
+  [ETopic.FEED_CONFIG, { name: ETopic.FEED_CONFIG, numPartitions: 30, replicationFactor: 1 }],
+  [ETopic.SOURCE_CONFIG, { name: ETopic.SOURCE_CONFIG, numPartitions: 30, replicationFactor: 1 }],
+  [ETopic.SOURCE_DATA, { name: ETopic.SOURCE_DATA, numPartitions: 30, replicationFactor: 1 }],
+  [ETopic.SOURCE_POLLING, { name: ETopic.SOURCE_POLLING, numPartitions: 30, replicationFactor: 1 }],
 ]);
 
 // export class CustStorage extends KStorage {

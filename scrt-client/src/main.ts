@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { getConfigKafka, RelaydKClient, RelaydKGroup } from '@relayd/common';
+import { KafkaUtils, RelaydKClient, RelaydKGroup } from '@relayd/common';
 import { ValidationPipe } from '@nestjs/common/pipes/validation.pipe';
 
 async function bootstrap() {
@@ -9,7 +9,7 @@ async function bootstrap() {
     //logger: false,
   });
 
-  const msConfig = getConfigKafka(RelaydKClient.SCRT, RelaydKGroup.SCRT);
+  const msConfig = KafkaUtils.getConfigKafka(RelaydKClient.SCRT, RelaydKGroup.SCRT);
   app.connectMicroservice(msConfig);
 
   app.useGlobalPipes(

@@ -17,7 +17,8 @@ Some of the key tools / tech this project benefits from:
 - [Kafka](https://kafka.apache.org/) as the distributed event streaming platform among the main services
 
 ## Status
-This dev project has been put aside, considering mostly that the BandProtocol is a good option for Secret contracts to integrate with.
+This dev project has been put aside, considering mostly that the BandProtocol is a good & existing option for Secret contracts to integrate data/price feeds.
+
 The interest of this code repository is mostly on the ETH & SN SDKs integration, and moreover the solution for independant MS operators to collaborate through Kakfka: to distribute the tasks/workloads and reach a consensus to apply changes on chain.
 
 ## Tech Requirements
